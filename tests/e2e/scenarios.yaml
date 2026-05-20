@@ -1,0 +1,95 @@
+# Карта E2E-сценариев → тесты (см. cursor-context/docs/ui-api-scenarios.md §13)
+# phase: 1 = backend без UI, 2 = с UI (часть API уже покрыта на фазе 1)
+
+phase1:
+  P1-01:
+    title: Health всех сервисов
+    tests: test_health.py
+  P1-02:
+    title: Register + org + default workspace (IAM → config)
+    tests: test_phase1_flow.py::test_register_creates_org_and_default_workspace
+  P1-03:
+    title: Login + refresh
+    tests: test_phase1_flow.py::test_login_and_refresh
+  P1-04:
+    title: BFF JWT + catalog + chat
+    tests: test_phase1_flow.py::test_bff_catalog_and_chat
+  P1-05:
+    title: MCP install (secrets + policy) + list + delete
+    tests: test_phase1_flow.py::test_mcp_install_lifecycle
+  P1-06:
+    title: DB — token не в connection_config, есть policy + audit
+    tests: test_phase1_flow.py::test_install_persists_secrets_policy_audit
+    markers: [db]
+
+client:
+  K1:
+    title: Логин / регистрация
+    tests: test_k_scenarios.py::TestK1Auth
+    phase: 1
+  K2:
+    title: Org → groups → workspace
+    tests: test_k_scenarios.py::TestK2Context
+    phase: 1
+  K3:
+    title: Чат с агентом
+    tests: test_k_scenarios.py::TestK3Chat
+    phase: 1
+  K4:
+    title: Очередь HITL
+    status: skipped
+    reason: pending-approvals API не реализован
+  K5:
+    title: Маркетплейс MCP + установка
+    tests: test_k_scenarios.py::TestK5McpInstall
+    phase: 1
+  K6:
+    title: Список подключений workspace
+    tests: test_k_scenarios.py::TestK6InstallationsList
+    phase: 1
+  K7:
+    title: Поиск по знаниям
+    status: skipped
+    reason: knowledge-service отсутствует
+  K8:
+    title: Профиль и сессии
+    tests: test_k_scenarios.py::TestK8Profile
+    phase: 1
+
+admin:
+  A1:
+    title: Участники
+    tests: test_a_scenarios.py::TestA1Members
+    phase: 1
+  A2:
+    title: Инвайты
+    tests: test_a_scenarios.py::TestA2Invites
+    phase: 1
+  A3:
+    title: Группы
+    tests: test_a_scenarios.py::TestA3Groups
+    phase: 1
+  A4:
+    title: Workspaces в группе
+    tests: test_a_scenarios.py::TestA4Workspaces
+    phase: 1
+  A5:
+    title: Политики CRUD
+    status: skipped
+    reason: публичный policy rules API не реализован
+  A6:
+    title: Журнал аудита (read)
+    status: skipped
+    reason: GET tool-events для админа не реализован
+  A7:
+    title: SSO / IdP
+    status: skipped
+    reason: Enterprise SSO 501 в MVP
+  A8:
+    title: Billing
+    status: skipped
+    reason: billing-service отсутствует
+  A9:
+    title: Knowledge sources
+    status: skipped
+    reason: knowledge-service отсутствует

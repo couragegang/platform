@@ -35,6 +35,22 @@ docker compose up --build
 
 Скрипт: register → org → BFF `/api/me` → catalog → (опционально) install Notion → chat.
 
+## E2E интеграционные тесты (pytest)
+
+Полное покрытие сценариев **P1**, **K1–K8**, **A1–A9** (где API уже есть) — [`tests/e2e/README.md`](tests/e2e/README.md).
+
+```powershell
+docker compose up --build
+.\scripts\run-e2e.ps1
+```
+
+С реальным Notion:
+
+```powershell
+$env:NOTION_E2E_TOKEN = "secret_..."
+.\scripts\run-e2e.ps1 -m notion
+```
+
 ## Переменные (внутри compose)
 
 - Internal keys (`dev-internal-key`): `CONFIG_`, `POLICY_`, `SECRETS_`, `AUDIT_`

@@ -1,0 +1,59 @@
+name: E2E integration tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        working-directory: .
+        run: |
+          docker compose up -d --build
+          echo "Waiting for services..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/v1/iam/health \
+              && curl -sf http://localhost:8081/v1/mcp/health \
+              && curl -sf http://localhost:8082/v1/bff/health \
+              && curl -sf http://localhost:8084/v1/config/health \
+              && curl -sf http://localhost:8085/v1/policy/health \
+              && curl -sf http://localhost:8086/v1/audit/health \
+              && curl -sf http://localhost:8087/v1/secrets/health; then
+              echo "All healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs --tail=80
+          exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        working-directory: tests/e2e
+        run: pip install -r requirements.txt
+
+      - name: Run E2E (HTTP + DB)
+        working-directory: tests/e2e
+        run: pytest -m "phase1 or k or a" --tb=short
+
+      - name: Compose logs on failure
+        if: failure()
+        working-directory: .
+        run: docker compose logs --tail=100
+
+      - name: Tear down
+        if: always()
+        working-directory: .
+        run: docker compose down -v
