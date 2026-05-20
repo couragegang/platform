@@ -1,0 +1,173 @@
+# Полный локальный контур MVP (фаза 1 backend)
+# Запуск из каталога platform:
+#   docker compose up --build
+#
+# Порты: 5432 postgres, 8080 iam, 8081 mcp, 8082 bff, 8083 ai, 8084 config, 8085 policy, 8086 audit, 8087 secrets
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: platform
+      POSTGRES_DB: platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  config:
+    build:
+      context: ../services/config-service
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: config
+      DB_USER: platform
+      DB_PASSWORD: platform
+      CONFIG_INTERNAL_API_KEY: dev-internal-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  policy:
+    build:
+      context: ../services/policy-service
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: policy
+      DB_USER: platform
+      DB_PASSWORD: platform
+      POLICY_INTERNAL_API_KEY: dev-internal-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  secrets:
+    build:
+      context: ../services/secrets-service
+      dockerfile: Dockerfile
+    ports:
+      - "8087:8087"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: secrets
+      DB_USER: platform
+      DB_PASSWORD: platform
+      SECRETS_INTERNAL_API_KEY: dev-internal-key
+      SECRETS_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  audit:
+    build:
+      context: ../services/audit-service
+      dockerfile: Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: audit
+      DB_USER: platform
+      DB_PASSWORD: platform
+      AUDIT_INTERNAL_API_KEY: dev-internal-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  iam:
+    build:
+      context: ../services/iam-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: iam
+      DB_USER: platform
+      DB_PASSWORD: platform
+      CONFIG_SERVICE_ENABLED: "true"
+      CONFIG_SERVICE_URL: http://config:8084/v1/config
+      CONFIG_INTERNAL_API_KEY: dev-internal-key
+      JWT_SECRET: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config:
+        condition: service_started
+
+  mcp:
+    build:
+      context: ../services/mcp-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: mcp
+      DB_USER: platform
+      DB_PASSWORD: platform
+      POLICY_SERVICE_ENABLED: "true"
+      POLICY_SERVICE_URL: http://policy:8085/v1/policy
+      POLICY_INTERNAL_API_KEY: dev-internal-key
+      SECRETS_SERVICE_ENABLED: "true"
+      SECRETS_SERVICE_URL: http://secrets:8087/v1/secrets
+      SECRETS_INTERNAL_API_KEY: dev-internal-key
+      AUDIT_SERVICE_ENABLED: "true"
+      AUDIT_SERVICE_URL: http://audit:8086/v1/audit
+      AUDIT_INTERNAL_API_KEY: dev-internal-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+      policy:
+        condition: service_started
+      secrets:
+        condition: service_started
+      audit:
+        condition: service_started
+
+  ai:
+    build:
+      context: ../services/ai-runtime
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    depends_on:
+      - iam
+
+  bff:
+    build:
+      context: ../services/bff-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      IAM_BASE_URL: http://iam:8080/v1/iam
+      MCP_BASE_URL: http://mcp:8081/v1/mcp
+      AI_BASE_URL: http://ai:8083/v1/ai
+    depends_on:
+      - iam
+      - mcp
+      - ai
+      - config
+
+volumes:
+  pgdata:
