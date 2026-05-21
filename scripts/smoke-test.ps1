@@ -1,7 +1,10 @@
 # Smoke E2E: IAM -> BFF -> MCP catalog -> (optional install) -> chat
 # Требует: docker compose up в platform/
+# Секреты: platform/.env (см. .env.example)
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "load-dotenv.ps1")
+Import-PlatformDotEnv
 $iam = "http://localhost:8080/v1/iam"
 $bff = "http://localhost:8082/v1/bff"
 $mcp = "http://localhost:8081/v1/mcp"

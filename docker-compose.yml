@@ -34,7 +34,7 @@ services:
       DB_NAME: config
       DB_USER: platform
       DB_PASSWORD: platform
-      CONFIG_INTERNAL_API_KEY: dev-internal-key
+      CONFIG_INTERNAL_API_KEY: ${CONFIG_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,7 +51,7 @@ services:
       DB_NAME: policy
       DB_USER: platform
       DB_PASSWORD: platform
-      POLICY_INTERNAL_API_KEY: dev-internal-key
+      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,8 +68,8 @@ services:
       DB_NAME: secrets
       DB_USER: platform
       DB_PASSWORD: platform
-      SECRETS_INTERNAL_API_KEY: dev-internal-key
-      SECRETS_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      SECRETS_INTERNAL_API_KEY: ${SECRETS_INTERNAL_API_KEY:-dev-internal-key}
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,7 +86,7 @@ services:
       DB_NAME: audit
       DB_USER: platform
       DB_PASSWORD: platform
-      AUDIT_INTERNAL_API_KEY: dev-internal-key
+      AUDIT_INTERNAL_API_KEY: ${AUDIT_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,8 +105,8 @@ services:
       DB_PASSWORD: platform
       CONFIG_SERVICE_ENABLED: "true"
       CONFIG_SERVICE_URL: http://config:8084/v1/config
-      CONFIG_INTERNAL_API_KEY: dev-internal-key
-      JWT_SECRET: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CONFIG_INTERNAL_API_KEY: ${CONFIG_INTERNAL_API_KEY:-dev-internal-key}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,13 +127,13 @@ services:
       DB_PASSWORD: platform
       POLICY_SERVICE_ENABLED: "true"
       POLICY_SERVICE_URL: http://policy:8085/v1/policy
-      POLICY_INTERNAL_API_KEY: dev-internal-key
+      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
       SECRETS_SERVICE_ENABLED: "true"
       SECRETS_SERVICE_URL: http://secrets:8087/v1/secrets
-      SECRETS_INTERNAL_API_KEY: dev-internal-key
+      SECRETS_INTERNAL_API_KEY: ${SECRETS_INTERNAL_API_KEY:-dev-internal-key}
       AUDIT_SERVICE_ENABLED: "true"
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
-      AUDIT_INTERNAL_API_KEY: dev-internal-key
+      AUDIT_INTERNAL_API_KEY: ${AUDIT_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy

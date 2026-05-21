@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import lib.dotenv_loader  # noqa: F401 — loads platform/.env
+
 PLATFORM_ROOT = Path(__file__).resolve().parents[3]
 
 IAM_URL = os.getenv("E2E_IAM_URL", "http://localhost:8080/v1/iam")

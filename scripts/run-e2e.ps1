@@ -1,5 +1,8 @@
 # Запуск E2E pytest (стек должен быть поднят: docker compose up --build)
+# Секреты: platform/.env (см. .env.example)
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "load-dotenv.ps1")
+Import-PlatformDotEnv
 $root = Split-Path -Parent $PSScriptRoot
 $e2e = Join-Path $root "tests\e2e"
 

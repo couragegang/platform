@@ -16,6 +16,16 @@
 | bff-gateway | http://localhost:8082/v1/bff | — |
 | ai-runtime | http://localhost:8083/v1/ai | — |
 
+## Локальные секреты (`.env`)
+
+```powershell
+cd platform
+copy .env.example .env
+# Отредактируй .env: NOTION_SMOKE_TOKEN, NOTION_E2E_TOKEN (secret_... из Notion)
+```
+
+Файл `.env` в git не коммитится. Его читают `docker compose`, `smoke-test.ps1` и E2E pytest.
+
 ## Запуск
 
 ```powershell
@@ -44,18 +54,15 @@ docker compose up --build
 .\scripts\run-e2e.ps1
 ```
 
-С реальным Notion:
+С реальным Notion — достаточно заполнить `NOTION_E2E_TOKEN` в `.env`:
 
 ```powershell
-$env:NOTION_E2E_TOKEN = "secret_..."
 .\scripts\run-e2e.ps1 -m notion
 ```
 
-## Переменные (внутри compose)
+## Переменные (`.env` / compose)
 
-- Internal keys (`dev-internal-key`): `CONFIG_`, `POLICY_`, `SECRETS_`, `AUDIT_`
-- `SECRETS_ENCRYPTION_KEY`: dev-only AES key (32 bytes)
-- `JWT_SECRET`: dev-only (см. `docker-compose.yml`)
+См. [`.env.example`](.env.example): Notion-токены, `JWT_SECRET`, `SECRETS_ENCRYPTION_KEY`, internal API keys.
 
 ## Отдельные compose
 
