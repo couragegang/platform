@@ -161,8 +161,8 @@ services:
       - "8082:8082"
     environment:
       IAM_BASE_URL: http://iam:8080/v1/iam
-      MCP_BASE_URL: http://mcp:8081/v1/mcp
-      AI_BASE_URL: http://ai:8083/v1/ai
+      MCP_BASE_URL: http://mcp:8081
+      AI_BASE_URL: http://ai:8083
     depends_on:
       - iam
       - mcp

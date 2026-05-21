@@ -27,7 +27,7 @@ $me = Invoke-RestMethod -Method Get -Uri "$bff/api/me" -Headers $headers
 Write-Host "   userId=$($me.userId) orgId=$($me.orgId)"
 
 Write-Host "3. MCP catalog..."
-$catRaw = Invoke-WebRequest -Method Get -Uri "$bff/api/mcp/catalog" -Headers $headers
+$catRaw = Invoke-WebRequest -Method Get -Uri "$bff/api/mcp/catalog" -Headers $headers -UseBasicParsing -TimeoutSec 30
 Write-Host "   catalog bytes: $($catRaw.Content.Length)"
 
 if (-not $me.workspaceId) {
@@ -61,8 +61,8 @@ if ($env:NOTION_SMOKE_TOKEN) {
 Write-Host "6. BFF chat..."
 $chatHeaders = $headers.Clone()
 $chatHeaders["X-Workspace-Id"] = "$workspaceId"
-$chatBody = '{"message":"Привет, smoke test"}'
-$chat = Invoke-WebRequest -Method Post -Uri "$bff/api/chat" -Headers $chatHeaders -ContentType "application/json" -Body $chatBody
+$chatBody = (@{ message = "hello smoke test" } | ConvertTo-Json -Compress)
+$chat = Invoke-WebRequest -Method Post -Uri "$bff/api/chat" -Headers $chatHeaders -ContentType "application/json" -Body $chatBody -UseBasicParsing -TimeoutSec 30
 Write-Host "   chat: $($chat.Content)"
 
 Write-Host "Smoke test completed."
