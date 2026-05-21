@@ -2,7 +2,7 @@
 # Запуск из каталога platform:
 #   docker compose up --build
 #
-# Порты: 5432 postgres, 8080 iam, 8081 mcp, 8082 bff, 8083 ai, 8084 config, 8085 policy, 8086 audit, 8087 secrets
+# Порты: 5432 postgres, 8080 iam, 8081 mcp, 8082 bff, 8083 ai, 8084 config, 8085 policy, 8086 audit, 8087 secrets, 8088 knowledge
 
 services:
   postgres:
@@ -144,14 +144,35 @@ services:
       audit:
         condition: service_started
 
+  knowledge:
+    build:
+      context: ../services/knowledge-service
+      dockerfile: Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: knowledge
+      DB_USER: platform
+      DB_PASSWORD: platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ai:
     build:
       context: ../services/ai-runtime
       dockerfile: Dockerfile
     ports:
       - "8083:8083"
+    environment:
+      POLICY_SERVICE_ENABLED: "true"
+      POLICY_SERVICE_URL: http://policy:8085/v1/policy
+      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       - iam
+      - policy
 
   bff:
     build:
@@ -163,11 +184,17 @@ services:
       IAM_BASE_URL: http://iam:8080/v1/iam
       MCP_BASE_URL: http://mcp:8081
       AI_BASE_URL: http://ai:8083
+      POLICY_BASE_URL: http://policy:8085/v1/policy
+      AUDIT_BASE_URL: http://audit:8086/v1/audit
+      KNOWLEDGE_BASE_URL: http://knowledge:8088/v1/knowledge
     depends_on:
       - iam
       - mcp
       - ai
       - config
+      - policy
+      - audit
+      - knowledge
 
 volumes:
   pgdata:

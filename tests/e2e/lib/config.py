@@ -13,6 +13,7 @@ CONFIG_URL = os.getenv("E2E_CONFIG_URL", "http://localhost:8084/v1/config")
 POLICY_URL = os.getenv("E2E_POLICY_URL", "http://localhost:8085/v1/policy")
 AUDIT_URL = os.getenv("E2E_AUDIT_URL", "http://localhost:8086/v1/audit")
 SECRETS_URL = os.getenv("E2E_SECRETS_URL", "http://localhost:8087/v1/secrets")
+KNOWLEDGE_URL = os.getenv("E2E_KNOWLEDGE_URL", "http://localhost:8088/v1/knowledge")
 
 E2E_PASSWORD = os.getenv("E2E_PASSWORD", "E2eTest-Password-1")
 NOTION_TOKEN = os.getenv("NOTION_E2E_TOKEN") or os.getenv("NOTION_SMOKE_TOKEN")
@@ -28,4 +29,5 @@ SERVICES_HEALTH = {
     "policy": f"{POLICY_URL}/health",
     "audit": f"{AUDIT_URL}/health",
     "secrets": f"{SECRETS_URL}/health",
+    "knowledge": f"{KNOWLEDGE_URL}/health",
 }

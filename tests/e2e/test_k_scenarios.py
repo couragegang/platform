@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from lib.config import BFF_URL, IAM_URL, MCP_URL, NOTION_TOKEN
+from lib.config import BFF_URL, IAM_URL, NOTION_TOKEN
 from lib.http_client import ApiSession
 
 pytestmark = pytest.mark.k
@@ -51,10 +51,44 @@ class TestK3Chat:
         r.raise_for_status()
 
 
-@pytest.mark.skip(reason="K4: pending-approvals API not implemented")
 class TestK4Hitl:
-    def test_pending_approvals(self):
-        pass
+    def test_pending_approvals(self, session: ApiSession):
+        token = NOTION_TOKEN or "ntn_e2e_fake_k4"
+        session.install_notion(token, label="K4 HITL")
+
+        chat = requests.post(
+            f"{BFF_URL}/api/chat",
+            headers={**session.auth_headers(), "X-Workspace-Id": session.workspace_id},
+            json={
+                "message": "update notion page",
+                "toolName": "notion_write_page",
+                "connectorKey": "notion",
+            },
+            timeout=30,
+        )
+        chat.raise_for_status()
+        body = chat.json()
+        assert body.get("status") == "awaiting_approval"
+        pending_id = body.get("pendingApprovalId")
+        assert pending_id
+
+        listed = requests.get(
+            f"{BFF_URL}/api/policy/orgs/{session.org_id}/pending-approvals",
+            headers=session.auth_headers(),
+            params={"workspace_id": session.workspace_id},
+            timeout=30,
+        )
+        listed.raise_for_status()
+        assert any(p["id"] == pending_id for p in listed.json().get("items", []))
+
+        approved = requests.post(
+            f"{BFF_URL}/api/policy/pending-approvals/{pending_id}/approve",
+            headers=session.auth_headers(),
+            json={"decidedByUserId": session.user_id},
+            timeout=30,
+        )
+        approved.raise_for_status()
+        assert approved.json()["status"] == "approved"
 
 
 class TestK5McpInstall:
@@ -80,10 +114,29 @@ class TestK6InstallationsList:
         session.delete_installation(inst["id"])
 
 
-@pytest.mark.skip(reason="K7: knowledge-service not implemented")
 class TestK7Knowledge:
-    def test_search(self):
-        pass
+    def test_search(self, session: ApiSession):
+        from lib.config import KNOWLEDGE_URL
+
+        requests.post(
+            f"{KNOWLEDGE_URL}/workspaces/{session.workspace_id}/sources",
+            params={"org_id": session.org_id},
+            json={"connectorKey": "notion", "displayName": "K7 Search Corpus"},
+            timeout=30,
+        ).raise_for_status()
+
+        r = requests.post(
+            f"{BFF_URL}/api/knowledge/search",
+            headers=session.auth_headers(),
+            json={
+                "orgId": session.org_id,
+                "workspaceId": session.workspace_id,
+                "query": "Search",
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        assert r.json().get("items")
 
 
 class TestK8Profile:

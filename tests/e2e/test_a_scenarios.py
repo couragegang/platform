@@ -3,7 +3,7 @@ import uuid
 import pytest
 import requests
 
-from lib.config import CONFIG_URL, IAM_URL
+from lib.config import AUDIT_URL, CONFIG_URL, IAM_URL, KNOWLEDGE_URL, POLICY_URL
 from lib.http_client import ApiSession
 
 pytestmark = pytest.mark.a
@@ -31,8 +31,6 @@ class TestA2Invites:
             json={
                 "email": invite_email,
                 "roleKeys": ["member"],
-                "groupId": None,
-                "groupRoleKeys": None,
                 "ttlHours": 24,
             },
             timeout=30,
@@ -78,16 +76,33 @@ class TestA4Workspaces:
         assert r.json()["slug"] == slug
 
 
-@pytest.mark.skip(reason="A5: policy rules public API not implemented")
 class TestA5Policy:
-    def test_list_rules(self):
-        pass
+    def test_list_rules(self, session: ApiSession):
+        token = __import__("os").environ.get("NOTION_E2E_TOKEN") or __import__("os").environ.get("NOTION_SMOKE_TOKEN")
+        if token:
+            session.install_notion(token, label="A5 policy rules")
+        r = requests.get(
+            f"{POLICY_URL}/orgs/{session.org_id}/rules",
+            timeout=30,
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        if token:
+            assert len(items) >= 2
 
 
-@pytest.mark.skip(reason="A6: audit read API not implemented")
 class TestA6Audit:
-    def test_tool_events(self):
-        pass
+    def test_tool_events(self, session: ApiSession):
+        token = __import__("os").environ.get("NOTION_E2E_TOKEN") or __import__("os").environ.get("NOTION_SMOKE_TOKEN") or "ntn_e2e_fake"
+        inst = session.install_notion(token, label="A6 audit")
+        r = requests.get(
+            f"{AUDIT_URL}/orgs/{session.org_id}/tool-events",
+            params={"workspace_id": session.workspace_id},
+            timeout=30,
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        assert any(e.get("installationId") == inst["id"] for e in items)
 
 
 @pytest.mark.skip(reason="A7: Enterprise SSO out of MVP scope")
@@ -102,7 +117,20 @@ class TestA8Billing:
         pass
 
 
-@pytest.mark.skip(reason="A9: knowledge-service not implemented")
 class TestA9Knowledge:
-    def test_sources(self):
-        pass
+    def test_sources(self, session: ApiSession):
+        connectors = requests.get(f"{KNOWLEDGE_URL}/connectors", timeout=30)
+        connectors.raise_for_status()
+        assert any(c["connectorKey"] == "notion" for c in connectors.json()["items"])
+
+        created = requests.post(
+            f"{KNOWLEDGE_URL}/workspaces/{session.workspace_id}/sources",
+            params={"org_id": session.org_id},
+            json={
+                "connectorKey": "notion",
+                "displayName": "E2E Notion KB",
+            },
+            timeout=30,
+        )
+        created.raise_for_status()
+        assert created.json()["connectorKey"] == "notion"

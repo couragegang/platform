@@ -6,10 +6,15 @@ Import-PlatformDotEnv
 $root = Split-Path -Parent $PSScriptRoot
 $e2e = Join-Path $root "tests\e2e"
 
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Error "Python not found. Install Python 3.10+"
+$python = if (Get-Command py -ErrorAction SilentlyContinue) { "py -3" } elseif (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" } else { "python" }
+$venvPython = Join-Path $e2e ".venv\Scripts\python.exe"
+if (-not (Test-Path $venvPython)) {
+    Invoke-Expression "$python -m venv `"$(Join-Path $e2e '.venv')`""
+}
+if (-not (Test-Path $venvPython)) {
+    Write-Error "Python 3.10+ required (py -3 or python3). Install Python and retry."
 }
 
 Set-Location $e2e
-python -m pip install -q -r requirements.txt
-python -m pytest @args
+& $venvPython -m pip install -q -r requirements.txt
+& $venvPython -m pytest @args
