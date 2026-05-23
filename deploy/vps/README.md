@@ -40,8 +40,7 @@ sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod
 | `VPS_HOST` | IP/hostname (может совпадать для test/prod) |
 | `VPS_USER` | SSH user |
 | `VPS_SSH_KEY` | приватный SSH-ключ |
-| `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS |
-| `GHCR_PULL_USER` (variable) | Username владельца PAT (напр. `d3byte`), **не** org `couragegang` |
+| `GHCR_PULL_TOKEN` | *(опционально)* только для ручного pull на VPS; CI использует `GITHUB_TOKEN` + org `IMAGE_OWNER` |
 
 ### Variables (разные для test и prod)
 
