@@ -46,7 +46,28 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 
 ### 3. Protected branches
 
-В каждом репозитории: **Settings → Branches** — правила для `test` и `main` (required reviews, no direct push).
+В **platform** (и по той же схеме в каждом BC): правила для **`test`** и **`main`**.
+
+| Правило | Значение |
+|---------|----------|
+| Require pull request before merging | да |
+| Required approving reviews | **1** |
+| Dismiss stale pull request approvals | да |
+| Require conversation resolution | да |
+| Enforce for administrators | да |
+| Allow force pushes | нет |
+| Allow deletions | нет |
+
+Повторно применить для **platform** (нужен `gh` и права admin):
+
+```powershell
+gh api --method PUT repos/couragegang/platform/branches/main/protection `
+  --input .github/branch-protection.json
+gh api --method PUT repos/couragegang/platform/branches/test/protection `
+  --input .github/branch-protection.json
+```
+
+Шаблон JSON: [`.github/branch-protection.json`](../.github/branch-protection.json).
 
 ### 4. Environments `test` / `prod` в **platform**
 
