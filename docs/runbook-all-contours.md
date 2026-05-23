@@ -410,6 +410,8 @@ git checkout -b feature/my-change
 # PR test → main  →  CI regress  →  merge  →  деплой VPS prod
 ```
 
+В репозитории **`platform`**: push только в **`test`**; в **`main`** — отдельный PR `test`→`main`, без автоматического дублирования каждого коммита (см. [`service-git-workflow.md`](service-git-workflow.md)).
+
 ### VPS — статус
 
 ```bash

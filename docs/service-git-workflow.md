@@ -8,6 +8,16 @@
 | **`main`** | Production | да | VPS **prod** (`/opt/couragegang-prod`) |
 | **`feature/*`** | Разработка | нет | деплой не запускается |
 
+### Репозиторий `platform` (отдельное правило)
+
+В **`couragegang/platform`** ветки **`test`** и **`main`** — **разные линии истории**, как в BC:
+
+- Повседневная работа и push — только в **`test`** (или feature → PR в `test`).
+- **`main`** обновляется **только** через MR/PR **`test` → `main`** после проверки на staging (E2E regress, деплой test).
+- **Не** делать локальный `merge test` + `push origin main` и **не** дублировать каждый коммит с `test` в `main` автоматически (ни в скриптах, ни агентом).
+
+Микросервисы по-прежнему: merge в `test` → staging deploy; merge в `main` → prod deploy (`trigger-deploy.yml`).
+
 ## Поток разработчика
 
 1. Ветвление от **`test`**: `git checkout test && git pull && git checkout -b feature/ABC-123`.
