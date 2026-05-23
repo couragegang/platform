@@ -74,6 +74,11 @@ permissions:
   contents: read
   packages: write
 
+# workflow_call from a BC checks out the caller repo by default; deploy needs platform/.
+env:
+  PLATFORM_REPO: ${{ github.repository_owner }}/platform
+  PLATFORM_REF: ${{ contains(github.workflow_ref, '@') && split(github.workflow_ref, '@')[1] || github.ref }}
+
 concurrency:
   group: deploy-vps-${{ inputs.contour || github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}-${{ github.event_name == 'workflow_call' && 'single' || github.event.client_payload.scope || github.event.inputs.deploy_scope || (github.event_name == 'repository_dispatch' && 'single') || 'all' }}-${{ inputs.service_repo || github.event.client_payload.repository || github.event.inputs.service_repo || 'platform' }}
   cancel-in-progress: true
@@ -91,7 +96,11 @@ jobs:
       vps_compose_service: ${{ steps.meta.outputs.vps_compose_service }}
       trigger_repo: ${{ steps.meta.outputs.trigger_repo }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ env.PLATFORM_REF }}
 
       - id: meta
         run: |
@@ -196,7 +205,11 @@ jobs:
       OIDC_GITHUB_CLIENT_ID: ${{ secrets.OIDC_GITHUB_CLIENT_ID }}
       OIDC_GITHUB_CLIENT_SECRET: ${{ secrets.OIDC_GITHUB_CLIENT_SECRET }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ env.PLATFORM_REF }}
 
       - name: Checkout microservices
         run: |
@@ -260,7 +273,11 @@ jobs:
       IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
       VPS_DEPLOY_DIR: /opt/couragegang-${{ needs.resolve.outputs.contour }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ env.PLATFORM_REF }}
 
       - name: Sync compose files to VPS
         uses: appleboy/scp-action@v0.1.7

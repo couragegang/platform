@@ -86,6 +86,8 @@
 
 В **`couragegang/platform`**: **Settings → Actions → General → Access** — разрешить вызов workflows из репозиториев org. Секрет **`PLATFORM_DEPLOY_TOKEN`** в BC **не используется** (устаревший путь через `repository_dispatch`).
 
+При `workflow_call` reusable workflow должен явно checkout **`platform`** (не репозиторий BC): иначе `scripts/deploy-catalog.sh` и прочие скрипты не найдены. В `deploy-vps.yml` используется `repository: ${{ github.repository_owner }}/platform` и ref из `github.workflow_ref` (`@test` / `@main`). Если checkout platform падает с **403**, в org включите для `GITHUB_TOKEN` доступ к репозиториям организации (**Settings → Actions → General**).
+
 Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
 
 ## 7. GHCR push: `unauthorized` при push
