@@ -27,7 +27,14 @@ merge → main (любой BC)  ──►  platform: deploy-vps  ──►  VPS 
 merge → test/main (platform, paths deploy/config)  ──►  тот же workflow
 ```
 
-Сборка всегда клонирует **все 9 сервисов** с ветки **`test`** или **`main`** (по контуру), не только изменённый репозиторий.
+### Режимы деплоя
+
+| Режим | Когда | Что происходит |
+|-------|--------|----------------|
+| **`single`** (по умолчанию) | Merge в `test`/`main` в **микросервисе** | Сборка/push **только этого** сервиса; на VPS перезапуск **одного** контейнера. Остальные теги — из `image-tags.env`. |
+| **`all`** | Push/merge в **`platform`** (deploy paths) или **Actions → Deploy to VPS** с `deploy_scope=all` | Полный bake всех 9 BC + postgres, общий тег, полный `up.sh`. |
+
+В payload dispatch из BC передаётся `scope: 'single'` и `repository: couragegang/<service>`.
 
 ## Одноразовая настройка GitHub
 
@@ -46,7 +53,36 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 
 ### 3. Protected branches
 
-В каждом репозитории: **Settings → Branches** — правила для `test` и `main` (required reviews, no direct push).
+В **platform** (и по той же схеме в каждом BC): правила для **`test`** и **`main`**.
+
+| Правило | Значение |
+|---------|----------|
+| Require pull request before merging | да |
+| Required approving reviews | **1** |
+| Dismiss stale pull request approvals | да |
+| Require conversation resolution | да |
+| Enforce for administrators | да |
+| Require approval from someone other than the last pusher | **нет** (`require_last_push_approval: false`) |
+| Allow force pushes | нет |
+| Allow deletions | нет |
+
+**Самоаппрув:** GitHub **не позволяет** автору PR нажать Approve на своём PR. Для solo/малой команды:
+
+1. Workflow [`.github/workflows/auto-approve-internal-prs.yml`](../.github/workflows/auto-approve-internal-prs.yml) — бот ставит approval на PR из того же репозитория (нужно **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests**).
+2. В [`branch-protection.json`](../.github/branch-protection.json) — `bypass_pull_request_allowances` для maintainer (можно мержить без review, если бот не сработал).
+
+Шаблон для BC: [`templates/auto-approve-internal-prs.yml`](../templates/auto-approve-internal-prs.yml).
+
+Повторно применить для **platform** (нужен `gh` и права admin):
+
+```powershell
+gh api --method PUT repos/couragegang/platform/branches/main/protection `
+  --input .github/branch-protection.json
+gh api --method PUT repos/couragegang/platform/branches/test/protection `
+  --input .github/branch-protection.json
+```
+
+Шаблон JSON: [`.github/branch-protection.json`](../.github/branch-protection.json).
 
 ### 4. Environments `test` / `prod` в **platform**
 

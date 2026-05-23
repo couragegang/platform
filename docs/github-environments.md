@@ -1,6 +1,10 @@
 # GitHub Environments для сборки и деплоя
 
-## 1. Создать environments
+## 1. Branch protection (`test`, `main`)
+
+В **platform** и BC: PR + 1 approval, bypass для maintainer, auto-approve workflow (если org разрешает Actions approve PR). Подробности — [`service-git-workflow.md`](service-git-workflow.md) § «Protected branches».
+
+## 2. Создать environments
 
 В репозитории **platform** (`couragegang/platform`):
 
@@ -11,7 +15,7 @@
 | **`test`** | CI E2E, сборка `build-images`, **VPS staging** (`/opt/couragegang-test`) |
 | **`prod`** | **VPS production** (`/opt/couragegang-prod`) |
 
-## 2. Secrets (одинаковые имена в test и prod, разные значения)
+## 3. Secrets (одинаковые имена в test и prod, разные значения)
 
 Минимум для bake и VPS:
 
@@ -39,7 +43,7 @@
 
 Полный список: [`config/contours/secret-keys.txt`](../config/contours/secret-keys.txt).
 
-## 3. Variables (не секреты)
+## 4. Variables (не секреты)
 
 Задайте **отдельно** в `test` и `prod`:
 
@@ -49,7 +53,7 @@
 | `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
 | `IMAGE_OWNER` | `couragegang` | `couragegang` |
 
-## 4. Как секреты попадают в runtime
+## 5. Как секреты попадают в runtime
 
 ### Local / E2E (без bake)
 
@@ -65,7 +69,7 @@
 4. Push `ghcr.io/.../service:<sha>-<contour>` и `<contour>-latest`.
 5. VPS: `/opt/couragegang-<contour>`, `./up.sh`.
 
-## 5. Workflows
+## 6. Workflows
 
 | Workflow | Environment | Деплой VPS |
 |----------|-------------|------------|
@@ -82,7 +86,16 @@
 
 Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
 
-## 6. Локально
+## 7. GHCR push: `unauthorized` при push
+
+Нужны **оба** условия:
+
+1. Org/repo: **Settings → Actions → Workflow permissions → Read and write** (иначе `GITHUB_TOKEN` не пишет в packages, даже при `packages: write` в YAML).
+2. В `deploy-vps.yml`: `permissions.packages: write` и login как `${{ github.repository_owner }}` + `GITHUB_TOKEN`.
+
+Если org запрещает write для workflow-токена — альтернатива: секрет `GHCR_PUSH_TOKEN` (PAT `write:packages`) вместо `GITHUB_TOKEN` в шаге login.
+
+## 8. Локально
 
 GitHub не нужен — `platform/.env` и контур `local`:
 

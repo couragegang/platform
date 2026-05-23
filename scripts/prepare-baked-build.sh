@@ -3,6 +3,7 @@
 set -euo pipefail
 
 CONTOUR="${1:-prod}"
+ONLY_REPO="${2:-}"
 PLATFORM_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SERVICES_ROOT="$(cd "$PLATFORM_ROOT/../services" && pwd)"
 SECRETS_ENV="$PLATFORM_ROOT/build/runtime-secrets.env"
@@ -43,6 +44,9 @@ SPECS=(
 
 for spec in "${SPECS[@]}"; do
   IFS=: read -r dir db_name jar fragment <<< "$spec"
+  if [[ -n "$ONLY_REPO" && "$dir" != "$ONLY_REPO" ]]; then
+    continue
+  fi
   svc_path="$SERVICES_ROOT/$dir"
   if [[ ! -d "$svc_path" ]]; then
     echo "skip $dir (not found at $svc_path)" >&2
@@ -75,4 +79,4 @@ for spec in "${SPECS[@]}"; do
   echo "baked env -> $dir/docker/runtime-baked.env"
 done
 
-echo "Prepare baked build complete (contour=$CONTOUR)"
+echo "Prepare baked build complete (contour=$CONTOUR only_repo=${ONLY_REPO:-all})"

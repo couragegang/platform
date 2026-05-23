@@ -1,12 +1,11 @@
-# VPS: только pull готовых образов. Без .env и env_file на сервере.
-# Запуск: DEPLOY_CONTOUR=test|prod IMAGE_TAG=<sha>-<contour> ./up.sh
-# test на том же хосте, что prod — оверлей docker-compose.ports-test.yml (порты 18080+)
+# VPS: pull готовых образов. Теги — image-tags.env (см. up.sh).
+# Fallback: IMAGE_TAG или <contour>-latest
 
 name: couragegang-${DEPLOY_CONTOUR:-prod}
 
 services:
   postgres:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/platform-postgres:${IMAGE_TAG:?IMAGE_TAG required}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/platform-postgres:${IMAGE_TAG_POSTGRES:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -17,7 +16,7 @@ services:
       retries: 12
 
   config:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG_CONFIG:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8084:8084"
@@ -26,7 +25,7 @@ services:
         condition: service_healthy
 
   policy:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG_POLICY:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8085:8085"
@@ -35,7 +34,7 @@ services:
         condition: service_healthy
 
   secrets:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG_SECRETS:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8087:8087"
@@ -44,7 +43,7 @@ services:
         condition: service_healthy
 
   audit:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG_AUDIT:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8086:8086"
@@ -53,7 +52,7 @@ services:
         condition: service_healthy
 
   iam:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG_IAM:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -64,7 +63,7 @@ services:
         condition: service_started
 
   mcp:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG_MCP:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -79,7 +78,7 @@ services:
         condition: service_started
 
   knowledge:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG_KNOWLEDGE:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8088:8088"
@@ -88,7 +87,7 @@ services:
         condition: service_healthy
 
   ai:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG_AI:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8083:8083"
@@ -97,7 +96,7 @@ services:
       - policy
 
   bff:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG_BFF:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     ports:
       - "8082:8082"
