@@ -22,6 +22,8 @@ if (-not $SkipE2e) {
     Write-Host "`n=== E2E (docker compose + pytest) ===" -ForegroundColor Cyan
     Push-Location $PlatformRoot
     try {
+        & "$PlatformRoot\scripts\fetch-build-secrets.ps1" -Contour local
+        $env:DEPLOY_CONTOUR = "local"
         docker compose up -d --build
         if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
 

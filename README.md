@@ -16,20 +16,33 @@
 | bff-gateway | http://localhost:8082/v1/bff | — |
 | ai-runtime | http://localhost:8083/v1/ai | — |
 
-## Локальные секреты (`.env`)
+## Контуры и секреты (local / test / prod)
+
+Секреты **не попадают в слои Docker-образа**. Перед сборкой генерируется `build/runtime.env` (см. [`config/contours/README.md`](config/contours/README.md)):
+
+| Контур | Откуда секреты |
+|--------|----------------|
+| **local** | `platform/.env` + `config/contours/local.env` |
+| **test** | GitHub Environment `test` (CI) или `test.env` |
+| **prod** | GitHub Environment `prod` (обязательные secrets) |
 
 ```powershell
 cd platform
 copy .env.example .env
-# Отредактируй .env: NOTION_SMOKE_TOKEN, NOTION_E2E_TOKEN (secret_... из Notion)
+# NOTION_*, JWT_SECRET, DEEPSEEK_API_KEY — по необходимости
+
+.\scripts\fetch-build-secrets.ps1 -Contour local
+.\scripts\build-stack.ps1 -Contour local -Up -Detach
+# или: docker compose up --build
 ```
 
-Файл `.env` в git не коммитится. Его читают `docker compose`, `smoke-test.ps1` и E2E pytest.
+В Dockerfile передаётся только метка `DEPLOY_CONTOUR` (build-arg).
 
-## Запуск
+## Запуск (кратко)
 
 ```powershell
 cd platform
+.\scripts\fetch-build-secrets.ps1 -Contour local
 docker compose up --build
 ```
 
@@ -43,7 +56,13 @@ docker compose up --build
 .\scripts\smoke-test.ps1
 ```
 
-Скрипт: register → org → BFF `/api/me` → catalog → (опционально) install Notion → chat.
+```bash
+chmod +x scripts/smoke-test.sh && ./scripts/smoke-test.sh
+```
+
+Скрипт: health (9 сервисов) → register → BFF `/api/me` → catalog → (опционально) install Notion → chat → knowledge connectors.
+
+Pytest-эквивалент: `cd tests/e2e && pytest -m smoke`.
 
 ## E2E интеграционные тесты (pytest)
 
@@ -60,9 +79,20 @@ docker compose up --build
 .\scripts\run-e2e.ps1 -m notion
 ```
 
-## Переменные (`.env` / compose)
+## Переменные (`.env` / `build/runtime.env`)
 
-См. [`.env.example`](.env.example): Notion-токены, `JWT_SECRET`, `SECRETS_ENCRYPTION_KEY`, internal API keys.
+См. [`.env.example`](.env.example) и [`config/contours/secret-keys.txt`](config/contours/secret-keys.txt).
+
+**GitHub:** создайте Environments `test` и `prod`, добавьте secrets с теми же именами — workflows `e2e.yml` и `build-images.yml` подставят их при сборке.
+
+## Деплой на VPS
+
+Конфиг **внутри образов** (без `.env` на сервере). Workflow **[`deploy-vps.yml`](.github/workflows/deploy-vps.yml)**:
+
+1. Секреты из GitHub Environment `prod` → bake → push **GHCR**
+2. SSH на VPS: `docker compose pull` + `up -d`
+
+Инструкция: [`deploy/vps/README.md`](deploy/vps/README.md).
 
 ## Отдельные compose
 

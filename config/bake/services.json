@@ -1,0 +1,47 @@
+{
+  "iam-service": {
+    "jar": "iam-service.jar",
+    "dbName": "iam",
+    "fragment": "iam.env"
+  },
+  "config-service": {
+    "jar": "config-service.jar",
+    "dbName": "config",
+    "fragment": "config.env"
+  },
+  "policy-service": {
+    "jar": "policy-service.jar",
+    "dbName": "policy",
+    "fragment": "policy.env"
+  },
+  "secrets-service": {
+    "jar": "secrets-service.jar",
+    "dbName": "secrets",
+    "fragment": "secrets.env"
+  },
+  "audit-service": {
+    "jar": "audit-service.jar",
+    "dbName": "audit",
+    "fragment": "audit.env"
+  },
+  "knowledge-service": {
+    "jar": "knowledge-service.jar",
+    "dbName": "knowledge",
+    "fragment": "knowledge.env"
+  },
+  "mcp-gateway": {
+    "jar": "app.jar",
+    "dbName": "mcp",
+    "fragment": "mcp.env"
+  },
+  "ai-runtime": {
+    "jar": "app.jar",
+    "dbName": "",
+    "fragment": "ai.env"
+  },
+  "bff-gateway": {
+    "jar": "app.jar",
+    "dbName": "",
+    "fragment": "bff.env"
+  }
+}

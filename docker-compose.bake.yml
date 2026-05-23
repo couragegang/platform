@@ -1,0 +1,107 @@
+# Сборка образов с конфигом внутри (target baked) для VPS.
+# CI: prepare-baked-build.sh prod && docker compose -f docker-compose.bake.yml build
+
+name: couragegang-bake
+
+x-bake-image: &bake-image
+  pull_policy: build
+
+services:
+  postgres:
+    <<: *bake-image
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+      args:
+        POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required for bake}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/platform-postgres:${IMAGE_TAG:-latest}
+
+  config:
+    <<: *bake-image
+    build:
+      context: ../services/config-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG:-latest}
+
+  policy:
+    <<: *bake-image
+    build:
+      context: ../services/policy-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG:-latest}
+
+  secrets:
+    <<: *bake-image
+    build:
+      context: ../services/secrets-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG:-latest}
+
+  audit:
+    <<: *bake-image
+    build:
+      context: ../services/audit-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG:-latest}
+
+  iam:
+    <<: *bake-image
+    build:
+      context: ../services/iam-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG:-latest}
+
+  mcp:
+    <<: *bake-image
+    build:
+      context: ../services/mcp-gateway
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG:-latest}
+
+  knowledge:
+    <<: *bake-image
+    build:
+      context: ../services/knowledge-service
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG:-latest}
+
+  ai:
+    <<: *bake-image
+    build:
+      context: ../services/ai-runtime
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG:-latest}
+
+  bff:
+    <<: *bake-image
+    build:
+      context: ../services/bff-gateway
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: prod
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG:-latest}

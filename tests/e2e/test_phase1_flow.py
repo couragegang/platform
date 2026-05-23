@@ -1,9 +1,9 @@
-import json
 import uuid
 
 import pytest
 import requests
 
+from lib.chat_assert import expected_chat_status, parse_chat_response
 from lib.config import BFF_URL, IAM_URL, MCP_URL, NOTION_TOKEN
 from lib.db_verify import audit_install_events, mcp_installation_row, policy_rules_count
 from lib.http_client import ApiSession
@@ -45,16 +45,12 @@ def test_bff_catalog_and_chat(session: ApiSession):
         timeout=30,
     )
     cat.raise_for_status()
-    assert "notion" in cat.text.lower()
+    items = cat.json().get("items") or []
+    assert any(i.get("connectorKey") == "notion" for i in items)
 
-    chat = requests.post(
-        f"{BFF_URL}/api/chat",
-        headers={**session.auth_headers(), "X-Workspace-Id": session.workspace_id},
-        json={"message": "e2e ping"},
-        timeout=30,
-    )
-    chat.raise_for_status()
-    assert chat.text
+    body = parse_chat_response(session.bff_chat({"message": "e2e ping"}))
+    assert body["status"] == expected_chat_status()
+    assert body.get("reply")
 
 
 def test_mcp_install_lifecycle(session: ApiSession):

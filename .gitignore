@@ -1,4 +1,9 @@
 .env
+build/runtime.env
+build/runtime-secrets.env
+build/oidc-baked.env
+build/*.env
+!build/.gitkeep
 *.log
 tests/e2e/.venv/
 tests/e2e/**/__pycache__/

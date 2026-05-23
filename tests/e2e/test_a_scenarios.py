@@ -3,7 +3,7 @@ import uuid
 import pytest
 import requests
 
-from lib.config import AUDIT_URL, CONFIG_URL, IAM_URL, KNOWLEDGE_URL, POLICY_URL
+from lib.config import AUDIT_URL, BFF_URL, CONFIG_URL, IAM_URL, KNOWLEDGE_URL, NOTION_TOKEN, POLICY_URL
 from lib.http_client import ApiSession
 
 pytestmark = pytest.mark.a
@@ -77,23 +77,54 @@ class TestA4Workspaces:
 
 
 class TestA5Policy:
-    def test_list_rules(self, session: ApiSession):
-        token = __import__("os").environ.get("NOTION_E2E_TOKEN") or __import__("os").environ.get("NOTION_SMOKE_TOKEN")
-        if token:
-            session.install_notion(token, label="A5 policy rules")
+    def test_list_rules_direct(self, session: ApiSession):
+        if NOTION_TOKEN:
+            session.install_notion(NOTION_TOKEN, label="A5 policy rules")
         r = requests.get(
             f"{POLICY_URL}/orgs/{session.org_id}/rules",
             timeout=30,
         )
         r.raise_for_status()
         items = r.json().get("items", [])
-        if token:
+        if NOTION_TOKEN:
             assert len(items) >= 2
+
+    def test_bff_list_rules(self, session: ApiSession):
+        if NOTION_TOKEN:
+            session.install_notion(NOTION_TOKEN, label="A5 BFF rules")
+        r = requests.get(
+            f"{BFF_URL}/api/policy/orgs/{session.org_id}/rules",
+            headers=session.auth_headers(),
+            timeout=30,
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        if NOTION_TOKEN:
+            assert len(items) >= 2
+        assert all("effect" in rule for rule in items) or not items
+
+
+class TestA7SsoNotImplemented:
+    """Enterprise SSO — заглушка 501 (MVP)."""
+
+    def test_sso_start_returns_501(self, session: ApiSession):
+        r = requests.get(
+            f"{IAM_URL}/auth/sso/e2e-org/start",
+            headers=session.auth_headers(),
+            timeout=30,
+        )
+        assert r.status_code == 501
+
+
+@pytest.mark.skip(reason="A8: billing-service not implemented")
+class TestA8Billing:
+    def test_plans(self):
+        pass
 
 
 class TestA6Audit:
-    def test_tool_events(self, session: ApiSession):
-        token = __import__("os").environ.get("NOTION_E2E_TOKEN") or __import__("os").environ.get("NOTION_SMOKE_TOKEN") or "ntn_e2e_fake"
+    def test_tool_events_direct(self, session: ApiSession):
+        token = NOTION_TOKEN or "ntn_e2e_fake"
         inst = session.install_notion(token, label="A6 audit")
         r = requests.get(
             f"{AUDIT_URL}/orgs/{session.org_id}/tool-events",
@@ -104,21 +135,22 @@ class TestA6Audit:
         items = r.json().get("items", [])
         assert any(e.get("installationId") == inst["id"] for e in items)
 
-
-@pytest.mark.skip(reason="A7: Enterprise SSO out of MVP scope")
-class TestA7Idp:
-    def test_sso(self):
-        pass
-
-
-@pytest.mark.skip(reason="A8: billing-service not implemented")
-class TestA8Billing:
-    def test_plans(self):
-        pass
+    def test_bff_tool_events(self, session: ApiSession):
+        token = NOTION_TOKEN or "ntn_e2e_fake_bff_audit"
+        inst = session.install_notion(token, label="A6 BFF audit")
+        r = requests.get(
+            f"{BFF_URL}/api/audit/orgs/{session.org_id}/tool-events",
+            headers=session.auth_headers(),
+            params={"workspace_id": session.workspace_id},
+            timeout=30,
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        assert any(e.get("installationId") == inst["id"] for e in items)
 
 
 class TestA9Knowledge:
-    def test_sources(self, session: ApiSession):
+    def test_sources_and_reindex(self, session: ApiSession):
         connectors = requests.get(f"{KNOWLEDGE_URL}/connectors", timeout=30)
         connectors.raise_for_status()
         assert any(c["connectorKey"] == "notion" for c in connectors.json()["items"])
@@ -133,4 +165,38 @@ class TestA9Knowledge:
             timeout=30,
         )
         created.raise_for_status()
-        assert created.json()["connectorKey"] == "notion"
+        source = created.json()
+        assert source["connectorKey"] == "notion"
+        source_id = source["id"]
+
+        reindex = requests.post(
+            f"{KNOWLEDGE_URL}/sources/{source_id}/reindex",
+            timeout=30,
+        )
+        reindex.raise_for_status()
+        assert reindex.json().get("documentsIndexed", 0) >= 0
+
+    def test_bff_sources_and_reindex(self, session: ApiSession):
+        listed = requests.get(
+            f"{BFF_URL}/api/knowledge/workspaces/{session.workspace_id}/sources",
+            headers=session.auth_headers(),
+            timeout=30,
+        )
+        listed.raise_for_status()
+
+        created = requests.post(
+            f"{BFF_URL}/api/knowledge/workspaces/{session.workspace_id}/sources",
+            headers=session.auth_headers(),
+            json={"connectorKey": "notion", "displayName": "A9 BFF KB"},
+            timeout=30,
+        )
+        created.raise_for_status()
+        source_id = created.json()["id"]
+
+        reindex = requests.post(
+            f"{BFF_URL}/api/knowledge/sources/{source_id}/reindex",
+            headers=session.auth_headers(),
+            json={},
+            timeout=30,
+        )
+        reindex.raise_for_status()

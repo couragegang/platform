@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Готовит docker/runtime-baked.env + entrypoint в каждом микросервисе для target baked.
+set -euo pipefail
+
+CONTOUR="${1:-prod}"
+PLATFORM_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SERVICES_ROOT="$(cd "$PLATFORM_ROOT/../services" && pwd)"
+SECRETS_ENV="$PLATFORM_ROOT/build/runtime-secrets.env"
+ENTRYPOINT_SRC="$PLATFORM_ROOT/docker/entrypoint-baked.sh"
+
+chmod +x "$PLATFORM_ROOT/scripts/fetch-build-secrets.sh"
+"$PLATFORM_ROOT/scripts/fetch-build-secrets.sh" "$CONTOUR" "$SECRETS_ENV"
+
+if [[ ! -f "$ENTRYPOINT_SRC" ]]; then
+  echo "Missing $ENTRYPOINT_SRC" >&2
+  exit 1
+fi
+
+PUBLIC_BASE="${VPS_PUBLIC_BASE_URL:-}"
+if [[ -n "$PUBLIC_BASE" ]]; then
+  PUBLIC_BASE="${PUBLIC_BASE%/}"
+  OIDC_EXTRA="$PLATFORM_ROOT/build/oidc-baked.env"
+  {
+    echo "OIDC_GOOGLE_REDIRECT_URI=${PUBLIC_BASE}/v1/iam/auth/oidc/google/callback"
+    echo "OIDC_GITHUB_REDIRECT_URI=${PUBLIC_BASE}/v1/iam/auth/oidc/github/callback"
+  } > "$OIDC_EXTRA"
+else
+  OIDC_EXTRA=""
+fi
+
+# service_dir:db_name:jar:fragment
+SPECS=(
+  "iam-service:iam:iam-service.jar:iam.env"
+  "config-service:config:config-service.jar:config.env"
+  "policy-service:policy:policy-service.jar:policy.env"
+  "secrets-service:secrets:secrets-service.jar:secrets.env"
+  "audit-service:audit:audit-service.jar:audit.env"
+  "knowledge-service:knowledge:knowledge-service.jar:knowledge.env"
+  "mcp-gateway:mcp:app.jar:mcp.env"
+  "ai-runtime::app.jar:ai.env"
+  "bff-gateway::app.jar:bff.env"
+)
+
+for spec in "${SPECS[@]}"; do
+  IFS=: read -r dir db_name jar fragment <<< "$spec"
+  svc_path="$SERVICES_ROOT/$dir"
+  if [[ ! -d "$svc_path" ]]; then
+    echo "skip $dir (not found at $svc_path)" >&2
+    continue
+  fi
+  docker_dir="$svc_path/docker"
+  mkdir -p "$docker_dir"
+  echo "runtime-baked.env" > "$docker_dir/.gitignore"
+  cp "$ENTRYPOINT_SRC" "$docker_dir/entrypoint-baked.sh"
+  chmod +x "$docker_dir/entrypoint-baked.sh"
+
+  out="$docker_dir/runtime-baked.env"
+  {
+    echo "DEPLOY_CONTOUR=$CONTOUR"
+    echo "APP_JAR=/app/$jar"
+    cat "$PLATFORM_ROOT/config/bake/static.env"
+    cat "$SECRETS_ENV"
+    if [[ -n "$db_name" ]]; then
+      echo "DB_NAME=$db_name"
+    fi
+    frag="$PLATFORM_ROOT/config/bake/fragments/$fragment"
+    if [[ -f "$frag" ]]; then
+      cat "$frag"
+    fi
+    if [[ -n "$OIDC_EXTRA" && "$dir" == "iam-service" ]]; then
+      cat "$OIDC_EXTRA"
+    fi
+  } | awk 'BEGIN{seen[""]=0} /^[A-Za-z_][A-Za-z0-9_]*=/ {k=$0; sub(/=.*/,"",k); if(!seen[k]++){print}}' > "$out"
+
+  echo "baked env -> $dir/docker/runtime-baked.env"
+done
+
+echo "Prepare baked build complete (contour=$CONTOUR)"

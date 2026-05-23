@@ -6,6 +6,11 @@ import requests
 from .config import BFF_URL, CONFIG_URL, E2E_PASSWORD, IAM_URL, MCP_URL
 
 
+def chat_headers(session: "ApiSession") -> dict[str, str]:
+    assert session.workspace_id
+    return {**session.auth_headers(), "X-Workspace-Id": session.workspace_id}
+
+
 class ApiSession:
     def __init__(self) -> None:
         self.email = f"e2e-{uuid.uuid4().hex[:12]}@example.com"
@@ -138,3 +143,11 @@ class ApiSession:
             timeout=30,
         )
         r.raise_for_status()
+
+    def bff_chat(self, payload: dict) -> requests.Response:
+        return requests.post(
+            f"{BFF_URL}/api/chat",
+            headers=chat_headers(self),
+            json=payload,
+            timeout=60,
+        )

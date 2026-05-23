@@ -1,0 +1,53 @@
+name: Build Docker images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docker-compose.yml"
+      - "config/contours/**"
+      - "scripts/**"
+      - ".github/workflows/build-images.yml"
+  workflow_dispatch:
+    inputs:
+      contour:
+        description: Deploy contour
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - prod
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.contour || 'test' }}
+    env:
+      DEPLOY_CONTOUR: ${{ github.event_name == 'workflow_dispatch' && inputs.contour || 'test' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
+      CONFIG_INTERNAL_API_KEY: ${{ secrets.CONFIG_INTERNAL_API_KEY }}
+      POLICY_INTERNAL_API_KEY: ${{ secrets.POLICY_INTERNAL_API_KEY }}
+      SECRETS_INTERNAL_API_KEY: ${{ secrets.SECRETS_INTERNAL_API_KEY }}
+      AUDIT_INTERNAL_API_KEY: ${{ secrets.AUDIT_INTERNAL_API_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout microservices
+        run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
+
+      - name: Prepare runtime secrets (GitHub Environment)
+        run: chmod +x scripts/fetch-build-secrets.sh && ./scripts/fetch-build-secrets.sh "$DEPLOY_CONTOUR"
+
+      - name: Build all service images
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker compose build
+
+      - name: Build summary
+        run: echo "Images built for contour=$DEPLOY_CONTOUR (secrets from GitHub Environment, not in image layers)"

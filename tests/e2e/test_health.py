@@ -3,7 +3,7 @@ import requests
 
 from lib.config import SERVICES_HEALTH
 
-pytestmark = pytest.mark.phase1
+pytestmark = [pytest.mark.phase1, pytest.mark.smoke]
 
 
 @pytest.mark.parametrize("name,url", list(SERVICES_HEALTH.items()))

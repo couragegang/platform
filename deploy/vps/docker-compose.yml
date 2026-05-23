@@ -1,0 +1,113 @@
+# VPS: только pull готовых образов. Без .env и env_file на сервере.
+# Запуск: IMAGE_TAG=<sha> ./up.sh
+
+name: couragegang-prod
+
+services:
+  postgres:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/platform-postgres:${IMAGE_TAG:?IMAGE_TAG required}
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  config:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  policy:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  secrets:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  audit:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  iam:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config:
+        condition: service_started
+
+  mcp:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      policy:
+        condition: service_started
+      secrets:
+        condition: service_started
+      audit:
+        condition: service_started
+
+  knowledge:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    depends_on:
+      - iam
+      - policy
+
+  bff:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    depends_on:
+      - iam
+      - mcp
+      - ai
+      - config
+      - policy
+      - audit
+      - knowledge
+
+volumes:
+  pgdata:

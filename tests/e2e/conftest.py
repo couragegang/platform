@@ -9,11 +9,16 @@ from lib.http_client import ApiSession
 
 
 def pytest_configure(config):
+    config.addinivalue_line("markers", "smoke: Fast smoke (health + BFF path)")
     config.addinivalue_line("markers", "phase1: Phase 1 backend MVP")
     config.addinivalue_line("markers", "k: Client scenario K1-K8")
     config.addinivalue_line("markers", "a: Admin scenario A1-A9")
     config.addinivalue_line("markers", "notion: Real Notion token required")
     config.addinivalue_line("markers", "db: PostgreSQL verification via docker")
+    config.addinivalue_line(
+        "markers",
+        "deepseek: Live DeepSeek LLM (LLM_PROVIDER=deepseek + DEEPSEEK_API_KEY)",
+    )
 
 
 @pytest.fixture(scope="session")

@@ -1,5 +1,19 @@
-# Карта E2E-сценариев → тесты (см. cursor-context/docs/ui-api-scenarios.md §13)
-# phase: 1 = backend без UI, 2 = с UI (часть API уже покрыта на фазе 1)
+# Карта E2E-сценариев → тесты (см. cursor-context/docs/ui-api-scenarios.md §13.1–13.3)
+# Обновлено: 2026-05-23 — smoke, P1, K1–K8, A1–A9 (A8 skipped; A7 = SSO 501)
+
+smoke:
+  SMOKE-01:
+    title: Health всех сервисов
+    tests: test_health.py
+  SMOKE-02:
+    title: Register → BFF → catalog → chat
+    tests: test_smoke.py::test_smoke_register_bff_catalog_chat
+  SMOKE-03:
+    title: Knowledge connectors (BFF)
+    tests: test_smoke.py::test_smoke_knowledge_connectors
+  script:
+    powershell: platform/scripts/smoke-test.ps1
+    bash: platform/scripts/smoke-test.sh
 
 phase1:
   P1-01:
@@ -12,7 +26,7 @@ phase1:
     title: Login + refresh
     tests: test_phase1_flow.py::test_login_and_refresh
   P1-04:
-    title: BFF JWT + catalog + chat
+    title: BFF JWT + catalog + chat (reply + status)
     tests: test_phase1_flow.py::test_bff_catalog_and_chat
   P1-05:
     title: MCP install (secrets + policy) + list + delete
@@ -28,17 +42,18 @@ client:
     tests: test_k_scenarios.py::TestK1Auth
     phase: 1
   K2:
-    title: Org → groups → workspace
+    title: Org → groups → workspace (+ BFF me)
     tests: test_k_scenarios.py::TestK2Context
     phase: 1
   K3:
-    title: Чат с агентом
+    title: Чат с агентом (stub / optional DeepSeek)
     tests: test_k_scenarios.py::TestK3Chat
+    optional: test_k_scenarios.py::TestK3DeepSeekChat
     phase: 1
   K4:
-    title: Очередь HITL
-    status: skipped
-    reason: pending-approvals API не реализован
+    title: Очередь HITL (approve + reject)
+    tests: test_k_scenarios.py::TestK4Hitl
+    phase: 1
   K5:
     title: Маркетплейс MCP + установка
     tests: test_k_scenarios.py::TestK5McpInstall
@@ -48,9 +63,9 @@ client:
     tests: test_k_scenarios.py::TestK6InstallationsList
     phase: 1
   K7:
-    title: Поиск по знаниям
-    status: skipped
-    reason: knowledge-service отсутствует
+    title: Поиск по знаниям (BFF)
+    tests: test_k_scenarios.py::TestK7Knowledge
+    phase: 1
   K8:
     title: Профиль и сессии
     tests: test_k_scenarios.py::TestK8Profile
@@ -74,22 +89,22 @@ admin:
     tests: test_a_scenarios.py::TestA4Workspaces
     phase: 1
   A5:
-    title: Политики CRUD
-    status: skipped
-    reason: публичный policy rules API не реализован
+    title: Политики read (policy + BFF)
+    tests: test_a_scenarios.py::TestA5Policy
+    phase: 1
   A6:
-    title: Журнал аудита (read)
-    status: skipped
-    reason: GET tool-events для админа не реализован
+    title: Журнал аудита (audit + BFF)
+    tests: test_a_scenarios.py::TestA6Audit
+    phase: 1
   A7:
-    title: SSO / IdP
-    status: skipped
-    reason: Enterprise SSO 501 в MVP
+    title: SSO / IdP (501 NOT_IMPLEMENTED)
+    tests: test_a_scenarios.py::TestA7SsoNotImplemented::test_sso_start_returns_501
+    phase: 1
   A8:
     title: Billing
     status: skipped
     reason: billing-service отсутствует
   A9:
-    title: Knowledge sources
-    status: skipped
-    reason: knowledge-service отсутствует
+    title: Knowledge sources + reindex (knowledge + BFF)
+    tests: test_a_scenarios.py::TestA9Knowledge
+    phase: 1

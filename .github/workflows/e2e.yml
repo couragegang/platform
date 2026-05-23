@@ -11,11 +11,30 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    environment: test
+    env:
+      DEPLOY_CONTOUR: test
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
+      CONFIG_INTERNAL_API_KEY: ${{ secrets.CONFIG_INTERNAL_API_KEY }}
+      POLICY_INTERNAL_API_KEY: ${{ secrets.POLICY_INTERNAL_API_KEY }}
+      SECRETS_INTERNAL_API_KEY: ${{ secrets.SECRETS_INTERNAL_API_KEY }}
+      AUDIT_INTERNAL_API_KEY: ${{ secrets.AUDIT_INTERNAL_API_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout microservices
+        run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
+
+      - name: Prepare runtime secrets (contour test)
+        run: chmod +x scripts/fetch-build-secrets.sh && ./scripts/fetch-build-secrets.sh test
+
       - name: Build and start stack
         working-directory: .
+        env:
+          DOCKER_BUILDKIT: "1"
         run: |
           docker compose up -d --build
           echo "Waiting for services..."
@@ -23,10 +42,12 @@ jobs:
             if curl -sf http://localhost:8080/v1/iam/health \
               && curl -sf http://localhost:8081/v1/mcp/health \
               && curl -sf http://localhost:8082/v1/bff/health \
+              && curl -sf http://localhost:8083/v1/ai/health \
               && curl -sf http://localhost:8084/v1/config/health \
               && curl -sf http://localhost:8085/v1/policy/health \
               && curl -sf http://localhost:8086/v1/audit/health \
-              && curl -sf http://localhost:8087/v1/secrets/health; then
+              && curl -sf http://localhost:8087/v1/secrets/health \
+              && curl -sf http://localhost:8088/v1/knowledge/health; then
               echo "All healthy"
               exit 0
             fi
@@ -43,6 +64,10 @@ jobs:
       - name: Install test deps
         working-directory: tests/e2e
         run: pip install -r requirements.txt
+
+      - name: Smoke tests
+        working-directory: tests/e2e
+        run: pytest -m smoke --tb=short -q
 
       - name: Run E2E (HTTP + DB)
         working-directory: tests/e2e

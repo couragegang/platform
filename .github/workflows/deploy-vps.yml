@@ -1,0 +1,138 @@
+name: Deploy to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag (default = commit SHA)
+        required: false
+      skip_deploy:
+        description: Build and push only (skip SSH deploy)
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "docker-compose.bake.yml"
+      - "deploy/**"
+      - "docker/**"
+      - "config/**"
+      - "scripts/**"
+      - ".github/workflows/deploy-vps.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-vps-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: prod
+    env:
+      DEPLOY_CONTOUR: prod
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
+      CONFIG_INTERNAL_API_KEY: ${{ secrets.CONFIG_INTERNAL_API_KEY }}
+      POLICY_INTERNAL_API_KEY: ${{ secrets.POLICY_INTERNAL_API_KEY }}
+      SECRETS_INTERNAL_API_KEY: ${{ secrets.SECRETS_INTERNAL_API_KEY }}
+      AUDIT_INTERNAL_API_KEY: ${{ secrets.AUDIT_INTERNAL_API_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'stub' }}
+      VPS_PUBLIC_BASE_URL: ${{ vars.VPS_PUBLIC_BASE_URL }}
+      NOTION_SMOKE_TOKEN: ${{ secrets.NOTION_SMOKE_TOKEN }}
+      NOTION_E2E_TOKEN: ${{ secrets.NOTION_E2E_TOKEN }}
+      OIDC_GOOGLE_CLIENT_ID: ${{ secrets.OIDC_GOOGLE_CLIENT_ID }}
+      OIDC_GOOGLE_CLIENT_SECRET: ${{ secrets.OIDC_GOOGLE_CLIENT_SECRET }}
+      OIDC_GITHUB_CLIENT_ID: ${{ secrets.OIDC_GITHUB_CLIENT_ID }}
+      OIDC_GITHUB_CLIENT_SECRET: ${{ secrets.OIDC_GITHUB_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout microservices
+        run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
+
+      - name: Bake config into service build contexts
+        run: |
+          chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
+          ./scripts/prepare-baked-build.sh prod
+          DB_PASSWORD="$(grep '^DB_PASSWORD=' build/runtime-secrets.env | cut -d= -f2- | tr -d '"')"
+          echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build baked images
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker compose -f docker-compose.bake.yml build
+
+      - name: Push images to GHCR
+        env:
+          OWNER: ${{ env.IMAGE_OWNER }}
+          TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          docker compose -f docker-compose.bake.yml push
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            for svc in platform-postgres config-service policy-service secrets-service audit-service iam-service mcp-gateway knowledge-service ai-runtime bff-gateway; do
+              src="ghcr.io/${OWNER}/${svc}:${TAG}"
+              dst="ghcr.io/${OWNER}/${svc}:prod-latest"
+              docker pull "$src"
+              docker tag "$src" "$dst"
+              docker push "$dst"
+            done
+          fi
+
+  deploy:
+    needs: build-and-push
+    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.skip_deploy != true) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync compose files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: deploy/vps/docker-compose.yml,deploy/vps/up.sh
+          target: /opt/couragegang
+          strip_components: 2
+
+      - name: Pull and restart on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          envs: IMAGE_TAG,IMAGE_OWNER
+          script: |
+            set -e
+            cd /opt/couragegang
+            chmod +x up.sh
+            echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            export IMAGE_TAG="${IMAGE_TAG}"
+            export IMAGE_OWNER="${IMAGE_OWNER}"
+            ./up.sh "${IMAGE_TAG}"

@@ -1,15 +1,26 @@
-# Полный локальный контур MVP (фаза 1 backend)
-# Запуск из каталога platform:
+# Полный контур MVP (фаза 1 backend)
+# Запуск:
+#   .\scripts\fetch-build-secrets.ps1 -Contour local
 #   docker compose up --build
+#   # или: .\scripts\build-stack.ps1 -Contour local -Up -Detach
 #
-# Порты: 5432 postgres, 8080 iam, 8081 mcp, 8082 bff, 8083 ai, 8084 config, 8085 policy, 8086 audit, 8087 secrets, 8088 knowledge
+# Контуры: local | test | prod — см. config/contours/README.md
+# Секреты: platform/build/runtime.env (генерируется скриптом, не в git)
+
+x-build-args: &build-args
+  DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-local}
+
+x-runtime-env: &runtime-env
+  env_file:
+    - path: build/runtime.env
+      required: false
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: platform
-      POSTGRES_PASSWORD: platform
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-platform}
       POSTGRES_DB: platform
     ports:
       - "5432:5432"
@@ -23,9 +34,12 @@ services:
       retries: 15
 
   config:
+    <<: *runtime-env
     build:
       context: ../services/config-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8084:8084"
     environment:
@@ -33,16 +47,18 @@ services:
       DB_PORT: "5432"
       DB_NAME: config
       DB_USER: platform
-      DB_PASSWORD: platform
-      CONFIG_INTERNAL_API_KEY: ${CONFIG_INTERNAL_API_KEY:-dev-internal-key}
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
     depends_on:
       postgres:
         condition: service_healthy
 
   policy:
+    <<: *runtime-env
     build:
       context: ../services/policy-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8085:8085"
     environment:
@@ -50,16 +66,18 @@ services:
       DB_PORT: "5432"
       DB_NAME: policy
       DB_USER: platform
-      DB_PASSWORD: platform
-      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
     depends_on:
       postgres:
         condition: service_healthy
 
   secrets:
+    <<: *runtime-env
     build:
       context: ../services/secrets-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8087:8087"
     environment:
@@ -67,17 +85,18 @@ services:
       DB_PORT: "5432"
       DB_NAME: secrets
       DB_USER: platform
-      DB_PASSWORD: platform
-      SECRETS_INTERNAL_API_KEY: ${SECRETS_INTERNAL_API_KEY:-dev-internal-key}
-      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
     depends_on:
       postgres:
         condition: service_healthy
 
   audit:
+    <<: *runtime-env
     build:
       context: ../services/audit-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8086:8086"
     environment:
@@ -85,16 +104,18 @@ services:
       DB_PORT: "5432"
       DB_NAME: audit
       DB_USER: platform
-      DB_PASSWORD: platform
-      AUDIT_INTERNAL_API_KEY: ${AUDIT_INTERNAL_API_KEY:-dev-internal-key}
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
     depends_on:
       postgres:
         condition: service_healthy
 
   iam:
+    <<: *runtime-env
     build:
       context: ../services/iam-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8080:8080"
     environment:
@@ -102,11 +123,11 @@ services:
       DB_PORT: "5432"
       DB_NAME: iam
       DB_USER: platform
-      DB_PASSWORD: platform
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
       CONFIG_SERVICE_ENABLED: "true"
       CONFIG_SERVICE_URL: http://config:8084/v1/config
-      CONFIG_INTERNAL_API_KEY: ${CONFIG_INTERNAL_API_KEY:-dev-internal-key}
-      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      OIDC_GOOGLE_REDIRECT_URI: ${OIDC_GOOGLE_REDIRECT_URI:-http://localhost:8080/v1/iam/auth/oidc/google/callback}
+      OIDC_GITHUB_REDIRECT_URI: ${OIDC_GITHUB_REDIRECT_URI:-http://localhost:8080/v1/iam/auth/oidc/github/callback}
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,9 +135,12 @@ services:
         condition: service_started
 
   mcp:
+    <<: *runtime-env
     build:
       context: ../services/mcp-gateway
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8081:8081"
     environment:
@@ -124,16 +148,13 @@ services:
       DB_PORT: "5432"
       DB_NAME: mcp
       DB_USER: platform
-      DB_PASSWORD: platform
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
       POLICY_SERVICE_ENABLED: "true"
       POLICY_SERVICE_URL: http://policy:8085/v1/policy
-      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
       SECRETS_SERVICE_ENABLED: "true"
       SECRETS_SERVICE_URL: http://secrets:8087/v1/secrets
-      SECRETS_INTERNAL_API_KEY: ${SECRETS_INTERNAL_API_KEY:-dev-internal-key}
       AUDIT_SERVICE_ENABLED: "true"
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
-      AUDIT_INTERNAL_API_KEY: ${AUDIT_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +169,8 @@ services:
     build:
       context: ../services/knowledge-service
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8088:8088"
     environment:
@@ -155,29 +178,36 @@ services:
       DB_PORT: "5432"
       DB_NAME: knowledge
       DB_USER: platform
-      DB_PASSWORD: platform
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
     depends_on:
       postgres:
         condition: service_healthy
 
   ai:
+    <<: *runtime-env
     build:
       context: ../services/ai-runtime
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8083:8083"
     environment:
       POLICY_SERVICE_ENABLED: "true"
       POLICY_SERVICE_URL: http://policy:8085/v1/policy
-      POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
+      AUDIT_SERVICE_ENABLED: "true"
+      AUDIT_SERVICE_URL: http://audit:8086/v1/audit
     depends_on:
       - iam
       - policy
+      - audit
 
   bff:
     build:
       context: ../services/bff-gateway
       dockerfile: Dockerfile
+      args:
+        <<: *build-args
     ports:
       - "8082:8082"
     environment:
