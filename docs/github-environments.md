@@ -31,7 +31,7 @@
 | `VPS_HOST` | IP/hostname VPS |
 | `VPS_USER` | SSH user |
 | `VPS_SSH_KEY` | Приватный SSH-ключ |
-| `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS |
+| `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS (classic или fine-grained с Packages read для org) |
 
 Опционально:
 
@@ -52,6 +52,7 @@
 | `LLM_PROVIDER` | `stub` | `deepseek` |
 | `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
 | `IMAGE_OWNER` | `couragegang` | `couragegang` |
+| `GHCR_PULL_USER` | GitHub **username** владельца PAT (напр. `d3byte`), **не** имя org | то же |
 
 ## 5. Как секреты попадают в runtime
 
@@ -95,7 +96,15 @@
 
 Если org запрещает write для workflow-токена — альтернатива: секрет `GHCR_PUSH_TOKEN` (PAT `write:packages`) вместо `GITHUB_TOKEN` в шаге login.
 
-## 8. Локально
+## 8. GHCR pull на VPS: `403 Forbidden`
+
+`Login Succeeded`, но `docker compose pull` → **403** на `ghcr.io/couragegang/...`:
+
+1. **`GHCR_PULL_USER`** — username владельца PAT (`d3byte`), не `couragegang`. В `deploy-vps` login: `docker login -u "$GHCR_PULL_USER"`.
+2. **`GHCR_PULL_TOKEN`** — scope `read:packages`; для org с SSO — **Authorize** PAT для org **couragegang**.
+3. Доступ к пакетам: GitHub → Package → **Package settings** → inherit from repo или добавить user/team с read.
+
+## 9. Локально
 
 GitHub не нужен — `platform/.env` и контур `local`:
 
