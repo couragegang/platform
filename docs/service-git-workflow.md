@@ -27,7 +27,14 @@ merge → main (любой BC)  ──►  platform: deploy-vps  ──►  VPS 
 merge → test/main (platform, paths deploy/config)  ──►  тот же workflow
 ```
 
-Сборка всегда клонирует **все 9 сервисов** с ветки **`test`** или **`main`** (по контуру), не только изменённый репозиторий.
+### Режимы деплоя
+
+| Режим | Когда | Что происходит |
+|-------|--------|----------------|
+| **`single`** (по умолчанию) | Merge в `test`/`main` в **микросервисе** | Сборка/push **только этого** сервиса; на VPS перезапуск **одного** контейнера. Остальные теги — из `image-tags.env`. |
+| **`all`** | Push/merge в **`platform`** (deploy paths) или **Actions → Deploy to VPS** с `deploy_scope=all` | Полный bake всех 9 BC + postgres, общий тег, полный `up.sh`. |
+
+В payload dispatch из BC передаётся `scope: 'single'` и `repository: couragegang/<service>`.
 
 ## Одноразовая настройка GitHub
 

@@ -1,0 +1,5 @@
+# Shell scripts must use LF on VPS (Linux).
+*.sh text eol=lf
+deploy/vps/up.sh text eol=lf
+docker/entrypoint-baked.sh text eol=lf
+scripts/*.sh text eol=lf

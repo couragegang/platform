@@ -11,6 +11,28 @@ on:
         options:
           - test
           - prod
+      deploy_scope:
+        description: all = full stack, single = one microservice
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - single
+      service_repo:
+        description: GitHub repo name (when deploy_scope=single)
+        required: false
+        type: choice
+        options:
+          - ai-runtime
+          - iam-service
+          - config-service
+          - policy-service
+          - secrets-service
+          - audit-service
+          - knowledge-service
+          - mcp-gateway
+          - bff-gateway
       image_tag:
         description: Override image tag (default = sha-contour)
         required: false
@@ -18,7 +40,6 @@ on:
         description: Build and push only (skip SSH deploy)
         type: boolean
         default: false
-  # Merge в platform (main→prod, test→test)
   push:
     branches: [main, test]
     paths:
@@ -28,7 +49,6 @@ on:
       - "config/**"
       - "scripts/**"
       - ".github/workflows/deploy-vps.yml"
-  # Merge в любой микросервис (см. services/*/.github/workflows/trigger-deploy.yml)
   repository_dispatch:
     types: [deploy-vps]
 
@@ -37,7 +57,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-vps-${{ github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}
+  group: deploy-vps-${{ github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}-${{ github.event.client_payload.scope || github.event.inputs.deploy_scope || (github.event_name == 'repository_dispatch' && 'single') || 'all' }}-${{ github.event.client_payload.repository || github.event.inputs.service_repo || 'platform' }}
   cancel-in-progress: true
 
 jobs:
@@ -46,20 +66,38 @@ jobs:
     outputs:
       contour: ${{ steps.meta.outputs.contour }}
       image_tag: ${{ steps.meta.outputs.image_tag }}
+      deploy_scope: ${{ steps.meta.outputs.deploy_scope }}
+      service_repo: ${{ steps.meta.outputs.service_repo }}
+      bake_service: ${{ steps.meta.outputs.bake_service }}
+      ghcr_image: ${{ steps.meta.outputs.ghcr_image }}
+      vps_compose_service: ${{ steps.meta.outputs.vps_compose_service }}
       trigger_repo: ${{ steps.meta.outputs.trigger_repo }}
     steps:
+      - uses: actions/checkout@v4
+
       - id: meta
         run: |
+          set -euo pipefail
+          source scripts/deploy-catalog.sh
+
           contour=""
           tag=""
           repo=""
+          scope="all"
+
           if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
             contour="${{ github.event.client_payload.contour }}"
             tag="${{ github.event.client_payload.sha }}-${contour}"
             repo="${{ github.event.client_payload.repository }}"
+            scope="${{ github.event.client_payload.scope }}"
+            if [[ -z "$scope" ]]; then
+              scope="single"
+            fi
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             contour="${{ github.event.inputs.contour }}"
             tag="${{ github.sha }}-${contour}"
+            scope="${{ github.event.inputs.deploy_scope }}"
+            repo="${{ github.event.inputs.service_repo }}"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             contour="prod"
             tag="${{ github.sha }}-prod"
@@ -67,13 +105,43 @@ jobs:
             contour="test"
             tag="${{ github.sha }}-test"
           fi
+
           if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
             tag="${{ github.event.inputs.image_tag }}"
           fi
-          echo "contour=$contour" >> "$GITHUB_OUTPUT"
-          echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "trigger_repo=$repo" >> "$GITHUB_OUTPUT"
-          echo "Deploy contour=$contour tag=$tag trigger=$repo"
+
+          bake_service=""
+          ghcr_image=""
+          vps_compose_service=""
+          service_repo=""
+
+          if [[ "$scope" == "single" ]]; then
+            if [[ -z "$repo" ]]; then
+              echo "deploy_scope=single requires service repository" >&2
+              exit 1
+            fi
+            repo="${repo##*/}"
+            service_repo="$repo"
+            resolved="$(deploy_catalog_resolve "$repo")"
+            bake_service="${resolved%%|*}"
+            rest="${resolved#*|}"
+            ghcr_image="${rest%%|*}"
+            rest="${rest#*|}"
+            vps_compose_service="${rest%%|*}"
+          fi
+
+          {
+            echo "contour=$contour"
+            echo "image_tag=$tag"
+            echo "deploy_scope=$scope"
+            echo "service_repo=${service_repo}"
+            echo "bake_service=${bake_service}"
+            echo "ghcr_image=${ghcr_image}"
+            echo "vps_compose_service=${vps_compose_service}"
+            echo "trigger_repo=${{ github.event.client_payload.repository || '' }}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Deploy contour=$contour scope=$scope tag=$tag repo=${repo:-all} vps=${vps_compose_service:-*}"
 
   build-and-push:
     needs: resolve
@@ -82,6 +150,9 @@ jobs:
     environment: ${{ needs.resolve.outputs.contour }}
     env:
       DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      DEPLOY_SCOPE: ${{ needs.resolve.outputs.deploy_scope }}
+      SERVICE_REPO: ${{ needs.resolve.outputs.service_repo }}
+      BAKE_SERVICE: ${{ needs.resolve.outputs.bake_service }}
       IMAGE_REGISTRY: ghcr.io
       IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
       IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
@@ -104,13 +175,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout microservices (branch test or main)
-        run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
+      - name: Checkout microservices
+        run: |
+          chmod +x scripts/checkout-services.sh
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+            export CHECKOUT_ONLY_REPO="$SERVICE_REPO"
+          fi
+          ./scripts/checkout-services.sh
 
       - name: Bake config into service build contexts
         run: |
           chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
-          ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR"
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+            ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "$SERVICE_REPO"
+          else
+            ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR"
+          fi
           DB_PASSWORD="$(grep '^DB_PASSWORD=' build/runtime-secrets.env | cut -d= -f2- | tr -d '"')"
           echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
 
@@ -118,29 +198,27 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build baked images
         env:
           DOCKER_BUILDKIT: "1"
-        run: docker compose -f docker-compose.bake.yml build
+        run: |
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+            docker compose -f docker-compose.bake.yml build "$BAKE_SERVICE"
+          else
+            docker compose -f docker-compose.bake.yml build
+          fi
 
       - name: Push images to GHCR
-        env:
-          OWNER: ${{ env.IMAGE_OWNER }}
-          TAG: ${{ env.IMAGE_TAG }}
-          CONTOUR: ${{ env.DEPLOY_CONTOUR }}
         run: |
-          docker compose -f docker-compose.bake.yml push
-          latest_tag="${CONTOUR}-latest"
-          for svc in platform-postgres config-service policy-service secrets-service audit-service iam-service mcp-gateway knowledge-service ai-runtime bff-gateway; do
-            src="ghcr.io/${OWNER}/${svc}:${TAG}"
-            dst="ghcr.io/${OWNER}/${svc}:${latest_tag}"
-            docker pull "$src"
-            docker tag "$src" "$dst"
-            docker push "$dst"
-          done
+          chmod +x scripts/push-baked-images.sh
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+            ./scripts/push-baked-images.sh "$BAKE_SERVICE"
+          else
+            ./scripts/push-baked-images.sh
+          fi
 
   deploy:
     needs: [resolve, build-and-push]
@@ -150,6 +228,8 @@ jobs:
     environment: ${{ needs.resolve.outputs.contour }}
     env:
       DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      DEPLOY_SCOPE: ${{ needs.resolve.outputs.deploy_scope }}
+      VPS_COMPOSE_SERVICE: ${{ needs.resolve.outputs.vps_compose_service }}
       IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
       IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
       VPS_DEPLOY_DIR: /opt/couragegang-${{ needs.resolve.outputs.contour }}
@@ -163,9 +243,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          source: deploy/vps/docker-compose.yml,deploy/vps/docker-compose.ports-test.yml,deploy/vps/up.sh
-          target: ${{ env.VPS_DEPLOY_DIR }}
+          source: deploy/vps/*
+          target: ${{ env.VPS_DEPLOY_DIR }}/
           strip_components: 2
+          overwrite: true
 
       - name: Pull and restart on VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -173,20 +254,33 @@ jobs:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
           DEPLOY_CONTOUR: ${{ env.DEPLOY_CONTOUR }}
+          DEPLOY_SCOPE: ${{ env.DEPLOY_SCOPE }}
+          VPS_COMPOSE_SERVICE: ${{ env.VPS_COMPOSE_SERVICE }}
           VPS_DEPLOY_DIR: ${{ env.VPS_DEPLOY_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          envs: IMAGE_TAG,IMAGE_OWNER,DEPLOY_CONTOUR,VPS_DEPLOY_DIR
+          envs: IMAGE_TAG,IMAGE_OWNER,DEPLOY_CONTOUR,DEPLOY_SCOPE,VPS_COMPOSE_SERVICE,VPS_DEPLOY_DIR
           script: |
             set -e
             mkdir -p "$VPS_DEPLOY_DIR"
             cd "$VPS_DEPLOY_DIR"
+            if [[ ! -f docker-compose.yml || ! -f up.sh ]]; then
+              echo "deploy files missing in $VPS_DEPLOY_DIR — check SCP step (expect docker-compose.yml, up.sh)" >&2
+              ls -la "$VPS_DEPLOY_DIR" || true
+              exit 1
+            fi
+            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml 2>/dev/null || true
             chmod +x up.sh
+            unset COMPOSE_FILE
             echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             export IMAGE_TAG="${IMAGE_TAG}"
             export IMAGE_OWNER="${IMAGE_OWNER}"
             export DEPLOY_CONTOUR="${DEPLOY_CONTOUR}"
-            ./up.sh "${IMAGE_TAG}"
+            if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+              bash ./up.sh "${IMAGE_TAG}" "${VPS_COMPOSE_SERVICE}"
+            else
+              bash ./up.sh "${IMAGE_TAG}"
+            fi

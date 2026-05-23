@@ -86,7 +86,16 @@
 
 Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
 
-## 7. Локально
+## 7. GHCR push: `unauthorized` при push
+
+Нужны **оба** условия:
+
+1. Org/repo: **Settings → Actions → Workflow permissions → Read and write** (иначе `GITHUB_TOKEN` не пишет в packages, даже при `packages: write` в YAML).
+2. В `deploy-vps.yml`: `permissions.packages: write` и login как `${{ github.repository_owner }}` + `GITHUB_TOKEN`.
+
+Если org запрещает write для workflow-токена — альтернатива: секрет `GHCR_PUSH_TOKEN` (PAT `write:packages`) вместо `GITHUB_TOKEN` в шаге login.
+
+## 8. Локально
 
 GitHub не нужен — `platform/.env` и контур `local`:
 

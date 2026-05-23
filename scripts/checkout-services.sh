@@ -21,17 +21,21 @@ if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
   FORCE=1
 fi
 
-repos=(
-  iam-service
-  config-service
-  policy-service
-  secrets-service
-  audit-service
-  knowledge-service
-  mcp-gateway
-  ai-runtime
-  bff-gateway
-)
+if [[ -n "${CHECKOUT_ONLY_REPO:-}" ]]; then
+  repos=("$CHECKOUT_ONLY_REPO")
+else
+  repos=(
+    iam-service
+    config-service
+    policy-service
+    secrets-service
+    audit-service
+    knowledge-service
+    mcp-gateway
+    ai-runtime
+    bff-gateway
+  )
+fi
 
 for repo in "${repos[@]}"; do
   dest="$SERVICES_ROOT/$repo"

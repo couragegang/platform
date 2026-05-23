@@ -59,7 +59,9 @@ sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod
 1. `environment: test` или `prod` → secrets/vars из соответствующего Environment.
 2. Клон всех BC с ветки **`test`** или **`main`** (по контуру).
 3. `prepare-baked-build.sh <contour>` → bake → push GHCR.
-4. SSH в `/opt/couragegang-<contour>` → `./up.sh <sha>-<contour>`.
+4. SSH в `/opt/couragegang-<contour>` → `./up.sh <sha>-<contour>` (все) или `./up.sh <sha>-<contour> ai` (только ai-runtime).
+
+Merge в микросервис → **single** (один образ). Push в **platform** (deploy paths) → **all**.
 
 ### Триггеры
 
@@ -78,10 +80,14 @@ Git-flow: [`docs/service-git-workflow.md`](../../docs/service-git-workflow.md).
 
 ```bash
 cd /opt/couragegang-test
-export DEPLOY_CONTOUR=test
-export IMAGE_OWNER=couragegang
-./up.sh abc123def-test
+unset COMPOSE_FILE
+sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml
+ls -la docker-compose.yml docker-compose.ports-test.yml up.sh
+export DEPLOY_CONTOUR=test IMAGE_OWNER=couragegang
+bash ./up.sh abc123def-test
 ```
+
+Если ошибка `stat ... docker-compose.yml docker-compose.ports-test.yml` — на сервере **старый** `up.sh` или в shell задан `COMPOSE_FILE` с пробелом. Обновите `up.sh` из репозитория и выполните `unset COMPOSE_FILE`.
 
 ## Образы GHCR
 
