@@ -160,6 +160,17 @@ curl -sS https://ai.valoriel.ru/         # SPA index.html
 | `/api/*` | BFF → `127.0.0.1:8082/v1/bff/api/*` (включая `/api/auth/*` → IAM внутри BFF) |
 | `/v1/iam/*` | IAM напрямую (OIDC **callback** с Google/GitHub) |
 | `/health` | BFF health |
+| `/grafana/` | Grafana → `127.0.0.1:3000` (нужны `GF_SERVER_ROOT_URL` + `GF_SERVER_SERVE_FROM_SUB_PATH=true`) |
+
+**Grafana** (если слушает `:3000` на VPS):
+
+```bash
+# в docker-compose / env Grafana:
+GF_SERVER_ROOT_URL=https://ai.valoriel.ru/grafana/
+GF_SERVER_SERVE_FROM_SUB_PATH=true
+```
+
+Проверка: `curl -sS -o /dev/null -w '%{http_code}' https://ai.valoriel.ru/grafana/` → `200` или редирект на login.
 
 **Деплой фронта:**
 
