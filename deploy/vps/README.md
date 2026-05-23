@@ -111,6 +111,70 @@ bash ./up.sh <ваш-sha>-test
 
 Аналогично для prod: `*-prod`, `prod-latest`.
 
+## Домен ai.valoriel.ru (рядом с iceberg.valoriel.ru)
+
+Один VPS, два проекта: iceberg слушает свой порт (например `8765`), AI stack — **8080–8088** (prod) или **18080–18088** (test). Конфликта портов нет.
+
+### 1. DNS
+
+| Запись | Значение |
+|--------|----------|
+| `A` `ai.valoriel.ru` | IP того же VPS, что у `iceberg.valoriel.ru` |
+| (опционально) `A` `ai-test.valoriel.ru` | тот же IP — staging (порты 18080+) |
+
+### 2. Nginx
+
+Шаблон location-блоков: [`nginx-ai.valoriel.ru.example.conf`](nginx-ai.valoriel.ru.example.conf).
+
+Публично достаточно **`/v1/bff/`** и **`/v1/iam/`** (OIDC callback). Остальные сервисы — только localhost или через BFF.
+
+TLS для `ai.valoriel.ru` уже выпущен — **новый certbot не нужен**; только добавить `location` в существующий `server { }` и `nginx -t && reload`.
+
+### 3. GitHub Environment **prod** (репозиторий `couragegang/platform`)
+
+| Variable / Secret | Значение для prod |
+|-------------------|-------------------|
+| **`VPS_PUBLIC_BASE_URL`** (variable) | `https://ai.valoriel.ru` |
+| `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` | те же, что для деплоя на VPS |
+| `GHCR_PULL_TOKEN` | PAT `read:packages` |
+| `JWT_SECRET`, `SECRETS_ENCRYPTION_KEY`, `*_INTERNAL_API_KEY`, `DB_PASSWORD` | **новые** prod-значения (не копировать с test) |
+| `OIDC_*` (secrets) | в Google/GitHub OAuth redirect URI: `https://ai.valoriel.ru/v1/iam/auth/oidc/{google\|github}/callback` |
+
+После merge в **`main`** любого BC → CI bake → GHCR → `/opt/couragegang-prod/up.sh`.
+
+Ручной первый деплой: **Actions → Deploy to VPS → contour `prod`**.
+
+### 4. Проверка
+
+```bash
+curl -sS https://ai.valoriel.ru/health
+curl -sS https://ai.valoriel.ru/api/me   # 401 без Bearer — норма
+curl -sS https://ai.valoriel.ru/         # SPA index.html
+```
+
+## Фронт (web-ui) + /api
+
+| URL в браузере | Куда |
+|----------------|------|
+| `/` | Static SPA (`/var/www/ai.valoriel.ru`) |
+| `/api/*` | BFF → `127.0.0.1:8082/v1/bff/api/*` (включая `/api/auth/*` → IAM внутри BFF) |
+| `/v1/iam/*` | IAM напрямую (OIDC **callback** с Google/GitHub) |
+| `/health` | BFF health |
+
+**Деплой фронта:**
+
+```bash
+sudo mkdir -p /var/www/ai.valoriel.ru
+# локально:
+cd web-ui && npm ci && npm run build
+rsync -avz --delete dist/ user@vps:/var/www/ai.valoriel.ru/
+# или: platform/scripts/deploy-web-ui.sh prod user@vps
+```
+
+Обновить nginx: [`nginx-ai.valoriel.ru.server.conf`](nginx-ai.valoriel.ru.server.conf) → `sites-available`, `nginx -t && reload`.
+
+Staging: [`nginx-ai-test.valoriel.ru.server.conf`](nginx-ai-test.valoriel.ru.server.conf), static в `/var/www/ai-test.valoriel.ru`, GitHub `VPS_PUBLIC_BASE_URL=https://ai-test.valoriel.ru`. **Полный гайд:** [`AI-TEST.md`](AI-TEST.md).
+
 ## Безопасность
 
 Секреты в **слоях образа** — отдельные образы для test и prod, разные registry-теги. Доступ к GHCR ограничить; для строгой изоляции позже — runtime secrets без bake.
