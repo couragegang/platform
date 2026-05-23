@@ -1,0 +1,22 @@
+# Host-порты prod (8080–8088). Базовый docker-compose.yml без ports — см. up.sh.
+# Не смешивать с ports-test на одном VPS.
+
+services:
+  iam:
+    ports: ["8080:8080"]
+  mcp:
+    ports: ["8081:8081"]
+  bff:
+    ports: ["8082:8082"]
+  ai:
+    ports: ["8083:8083"]
+  config:
+    ports: ["8084:8084"]
+  policy:
+    ports: ["8085:8085"]
+  audit:
+    ports: ["8086:8086"]
+  secrets:
+    ports: ["8087:8087"]
+  knowledge:
+    ports: ["8088:8088"]

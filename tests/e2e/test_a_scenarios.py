@@ -3,7 +3,7 @@ import uuid
 import pytest
 import requests
 
-from lib.config import AUDIT_URL, BFF_URL, CONFIG_URL, IAM_URL, KNOWLEDGE_URL, NOTION_TOKEN, POLICY_URL
+from lib.config import AUDIT_URL, BFF_URL, IAM_URL, KNOWLEDGE_URL, NOTION_TOKEN, POLICY_URL
 from lib.http_client import ApiSession
 
 pytestmark = pytest.mark.a
@@ -63,7 +63,7 @@ class TestA4Workspaces:
     def test_create_workspace_in_group(self, session: ApiSession):
         slug = f"ws-{uuid.uuid4().hex[:6]}"
         r = requests.post(
-            f"{CONFIG_URL}/orgs/{session.org_id}/workspaces",
+            f"{BFF_URL}/api/config/orgs/{session.org_id}/workspaces",
             headers=session.auth_headers(),
             json={
                 "name": "E2E Workspace",
@@ -74,6 +74,17 @@ class TestA4Workspaces:
         )
         r.raise_for_status()
         assert r.json()["slug"] == slug
+
+    def test_bff_list_workspaces(self, session: ApiSession):
+        r = requests.get(
+            f"{BFF_URL}/api/config/orgs/{session.org_id}/workspaces",
+            headers=session.auth_headers(),
+            timeout=30,
+        )
+        r.raise_for_status()
+        items = r.json().get("items") or []
+        assert items
+        assert any(ws.get("id") == session.workspace_id for ws in items)
 
 
 class TestA5Policy:

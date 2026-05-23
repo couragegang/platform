@@ -275,7 +275,7 @@ jobs:
               ls -la "$VPS_DEPLOY_DIR" || true
               exit 1
             fi
-            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml 2>/dev/null || true
+            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
             chmod +x up.sh
             unset COMPOSE_FILE
             # Org-scoped token from this workflow (not a personal PAT on VPS).

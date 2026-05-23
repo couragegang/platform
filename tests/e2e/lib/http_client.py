@@ -89,7 +89,7 @@ class ApiSession:
         org_detail = r.json()
         self.default_group_id = org_detail.get("defaultGroupId")
         ws = requests.get(
-            f"{CONFIG_URL}/orgs/{self.org_id}/workspaces",
+            f"{BFF_URL}/api/config/orgs/{self.org_id}/workspaces",
             headers=self.auth_headers(),
             timeout=30,
         )

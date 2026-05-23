@@ -32,6 +32,15 @@ if [[ "$DEPLOY_CONTOUR" == "test" ]]; then
     exit 1
   fi
   COMPOSE_FILES+=(docker-compose.ports-test.yml)
+elif [[ "$DEPLOY_CONTOUR" == "prod" ]]; then
+  if [[ ! -f docker-compose.ports-prod.yml ]]; then
+    echo "missing $DIR/docker-compose.ports-prod.yml (sync deploy/vps from platform repo)" >&2
+    exit 1
+  fi
+  COMPOSE_FILES+=(docker-compose.ports-prod.yml)
+else
+  echo "unknown DEPLOY_CONTOUR=$DEPLOY_CONTOUR (expected test or prod)" >&2
+  exit 1
 fi
 
 for f in "${COMPOSE_FILES[@]}"; do
@@ -110,7 +119,7 @@ if [[ ${#SERVICES[@]} -eq 0 ]]; then
   echo "Deploy ALL contour=$DEPLOY_CONTOUR tag=$IMAGE_TAG"
   set_all_tags "$IMAGE_TAG"
   compose pull
-  compose up -d --remove-orphans
+  compose up -d --remove-orphans --force-recreate
 else
   ensure_defaults
   for svc in "${SERVICES[@]}"; do
@@ -119,7 +128,7 @@ else
     echo "Deploy ONE contour=$DEPLOY_CONTOUR service=$svc tag=$IMAGE_TAG ($key)"
   done
   compose pull "${SERVICES[@]}"
-  compose up -d "${SERVICES[@]}"
+  compose up -d --force-recreate "${SERVICES[@]}"
 fi
 
 compose ps

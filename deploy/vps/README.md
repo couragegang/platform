@@ -9,7 +9,7 @@
 | **test** | Staging / приёмочный стенд | `/opt/couragegang-test` | `<sha>-test`, `test-latest` |
 | **prod** | Production | `/opt/couragegang-prod` | `<sha>-prod`, `prod-latest` |
 
-**test** и **prod** на **одном** VPS: у test host-порты **18080–18088** (оверлей `docker-compose.ports-test.yml`), у prod — **8080–8088**.
+**test** и **prod** на **одном** VPS: host-порты **только** в оверлеях — test **18080–18088** (`docker-compose.ports-test.yml`), prod **8080–8088** (`docker-compose.ports-prod.yml`). В базовом `docker-compose.yml` секции `ports` нет (иначе Compose **дописывает** порты из двух файлов, и test пытается занять 8080, уже занятый prod).
 
 ## Однократная настройка VPS
 
@@ -81,13 +81,28 @@ Git-flow: [`docs/service-git-workflow.md`](../../docs/service-git-workflow.md).
 ```bash
 cd /opt/couragegang-test
 unset COMPOSE_FILE
-sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml
-ls -la docker-compose.yml docker-compose.ports-test.yml up.sh
+sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml docker-compose.ports-prod.yml
+ls -la docker-compose.yml docker-compose.ports-*.yml up.sh
 export DEPLOY_CONTOUR=test IMAGE_OWNER=couragegang
 bash ./up.sh abc123def-test
 ```
 
 Если ошибка `stat ... docker-compose.yml docker-compose.ports-test.yml` — на сервере **старый** `up.sh` или в shell задан `COMPOSE_FILE` с пробелом. Обновите `up.sh` из репозитория и выполните `unset COMPOSE_FILE`.
+
+### `address already in use` на 8080 (test)
+
+Симптом: deploy test падает на `iam`, в `docker ps` у test-сервисов видны **и** `808x`, **и** `1808x` (например `8081` и `18081` у mcp). Причина — старый compose с `ports` в базе + оверлей test.
+
+**На VPS после обновления файлов из platform:**
+
+```bash
+cd /opt/couragegang-test
+unset COMPOSE_FILE
+export DEPLOY_CONTOUR=test IMAGE_OWNER=couragegang
+bash ./up.sh <ваш-sha>-test
+```
+
+`up.sh` пересоздаёт контейнеры (`--force-recreate`) с портами только **18080–18088**. Проверка: `docker ps` — у `couragegang-test-*` не должно быть `8080`–`8088` на host.
 
 ## Образы GHCR
 

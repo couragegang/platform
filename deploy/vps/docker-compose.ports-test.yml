@@ -1,5 +1,5 @@
-# Оверлей для контура test на том же VPS, что и prod (другие host-порты).
-# Используется: COMPOSE_FILE=docker-compose.yml:docker-compose.ports-test.yml
+# Host-порты test (18080–18088) на том же VPS, что и prod.
+# Порты только здесь — в базовом compose нет ports (иначе Compose дописывает 808x + 1808x).
 
 services:
   iam:
