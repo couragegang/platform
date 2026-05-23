@@ -1,7 +1,7 @@
 # Сборка образов с конфигом внутри (target baked) для VPS.
-# CI: prepare-baked-build.sh prod && docker compose -f docker-compose.bake.yml build
+# CI: DEPLOY_CONTOUR=test|prod prepare-baked-build.sh $CONTOUR && docker compose -f docker-compose.bake.yml build
 
-name: couragegang-bake
+name: couragegang-bake-${DEPLOY_CONTOUR:-prod}
 
 x-bake-image: &bake-image
   pull_policy: build
@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG:-latest}
 
   policy:
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG:-latest}
 
   secrets:
@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG:-latest}
 
   audit:
@@ -53,7 +53,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG:-latest}
 
   iam:
@@ -63,7 +63,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG:-latest}
 
   mcp:
@@ -73,7 +73,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG:-latest}
 
   knowledge:
@@ -83,7 +83,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG:-latest}
 
   ai:
@@ -93,7 +93,7 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG:-latest}
 
   bff:
@@ -103,5 +103,5 @@ services:
       dockerfile: Dockerfile
       target: baked
       args:
-        DEPLOY_CONTOUR: prod
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG:-latest}

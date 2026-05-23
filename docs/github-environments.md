@@ -1,4 +1,4 @@
-# GitHub Environments для сборки образов
+# GitHub Environments для сборки и деплоя
 
 ## 1. Создать environments
 
@@ -6,12 +6,14 @@
 
 **Settings → Environments → New environment**
 
-- `test` — CI (E2E, сборка на `main` / PR)
-- `prod` — продакшен-сборка (`workflow_dispatch` → contour `prod`)
+| Environment | Назначение |
+|-------------|------------|
+| **`test`** | CI E2E, сборка `build-images`, **VPS staging** (`/opt/couragegang-test`) |
+| **`prod`** | **VPS production** (`/opt/couragegang-prod`) |
 
-## 2. Secrets (одинаковые имена в test и prod)
+## 2. Secrets (одинаковые имена в test и prod, разные значения)
 
-Минимум для **prod** (обязательны скриптом `fetch-build-secrets`):
+Минимум для bake и VPS:
 
 | Secret | Описание |
 |--------|----------|
@@ -21,7 +23,11 @@
 | `POLICY_INTERNAL_API_KEY` | Internal API policy-service |
 | `SECRETS_INTERNAL_API_KEY` | Internal API secrets-service |
 | `AUDIT_INTERNAL_API_KEY` | Internal API audit-service |
-| `DB_PASSWORD` | Пароль PostgreSQL |
+| `DB_PASSWORD` | Пароль PostgreSQL (свой для test и prod) |
+| `VPS_HOST` | IP/hostname VPS |
+| `VPS_USER` | SSH user |
+| `VPS_SSH_KEY` | Приватный SSH-ключ |
+| `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS |
 
 Опционально:
 
@@ -35,29 +41,52 @@
 
 ## 3. Variables (не секреты)
 
-**Environment `test`** → **Variables**:
+Задайте **отдельно** в `test` и `prod`:
 
-| Variable | Пример |
-|----------|--------|
-| `LLM_PROVIDER` | `stub` |
+| Variable | test (пример) | prod (пример) |
+|----------|---------------|---------------|
+| `LLM_PROVIDER` | `stub` | `deepseek` |
+| `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
+| `IMAGE_OWNER` | `couragegang` | `couragegang` |
 
-## 4. Как это попадает в Docker
+## 4. Как секреты попадают в runtime
 
-1. Workflow задаёт `environment: test` или `prod`.
-2. Secrets мапятся в `env` job (см. `e2e.yml`, `build-images.yml`).
-3. `scripts/fetch-build-secrets.sh` пишет `build/runtime.env`.
-4. `docker compose build` получает `DEPLOY_CONTOUR` как build-arg (метка в образе).
-5. `docker compose up` читает `build/runtime.env` в контейнеры (**runtime**, не в слои образа).
+### Local / E2E (без bake)
 
-## 5. Локально
+1. Workflow `environment: test` → secrets в `env` job.
+2. `fetch-build-secrets.sh test` → `build/runtime.env`.
+3. `docker compose up` — `env_file`, образы **`target: local`**.
 
-Секреты из GitHub **не нужны** — достаточно `platform/.env` и контура `local`:
+### VPS (test и prod, bake)
+
+1. Workflow `environment: test` или `prod`.
+2. `prepare-baked-build.sh <contour>` → `services/*/docker/runtime-baked.env`.
+3. `docker compose -f docker-compose.bake.yml build` — **`target: baked`**.
+4. Push `ghcr.io/.../service:<sha>-<contour>` и `<contour>-latest`.
+5. VPS: `/opt/couragegang-<contour>`, `./up.sh`.
+
+## 5. Workflows
+
+| Workflow | Environment | Деплой VPS |
+|----------|-------------|------------|
+| `e2e.yml` | `test` | нет (только CI compose) |
+| `build-images.yml` | `test` или `prod` (dispatch) | нет |
+| `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да |
+| `trigger-deploy.yml` (в каждом BC) | — | шлёт dispatch в platform |
+
+### Секрет в микросервисах (не в platform)
+
+| Secret | Где | Зачем |
+|--------|-----|--------|
+| `PLATFORM_DEPLOY_TOKEN` | каждый `*-service`, `*-gateway`, `ai-runtime` | PAT → `repository_dispatch` в `couragegang/platform` |
+
+Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
+
+## 6. Локально
+
+GitHub не нужен — `platform/.env` и контур `local`:
 
 ```powershell
 .\scripts\fetch-build-secrets.ps1 -Contour local
-docker compose build
+docker compose up --build
 ```
-
-## 6. VPS (prod, конфиг в образе)
-
-См. [`deploy/vps/README.md`](../deploy/vps/README.md) и workflow **`deploy-vps.yml`**: секреты вшиваются при `docker build --target baked`, на сервере нет `.env`.

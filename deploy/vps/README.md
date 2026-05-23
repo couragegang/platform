@@ -1,26 +1,32 @@
-# Деплой на VPS (без `.env` на сервере)
+# Деплой на VPS (контуры test и prod)
 
-Конфиг и секреты **вшиты в образы** на этапе CI (`docker build --target baked`). На VPS только:
+Конфиг и секреты **вшиты в образы** на этапе CI (`docker build --target baked`). На VPS нет `.env` — только pull и `up.sh`.
 
-```bash
-cd /opt/couragegang
-IMAGE_TAG=<git-sha> ./up.sh
-```
+## Два контура на VPS
+
+| Контур | Назначение | Путь на VPS | Тег GHCR |
+|--------|------------|-------------|----------|
+| **test** | Staging / приёмочный стенд | `/opt/couragegang-test` | `<sha>-test`, `test-latest` |
+| **prod** | Production | `/opt/couragegang-prod` | `<sha>-prod`, `prod-latest` |
+
+**test** и **prod** на **одном** VPS: у test host-порты **18080–18088** (оверлей `docker-compose.ports-test.yml`), у prod — **8080–8088**.
 
 ## Однократная настройка VPS
 
 ```bash
-# на сервере
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER
-sudo mkdir -p /opt/couragegang && sudo chown $USER:$USER /opt/couragegang
+sudo mkdir -p /opt/couragegang-test /opt/couragegang-prod
+sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod
 ```
 
-Файлы `docker-compose.yml` и `up.sh` копирует GitHub Actions (`deploy-vps.yml`) или вручную из `platform/deploy/vps/`.
+Файлы compose и `up.sh` копирует GitHub Actions в нужный каталог.
 
-## GitHub Environment `prod`
+## GitHub Environments
 
-### Secrets (обязательные)
+Секреты задаются **отдельно** в Environment **`test`** и **`prod`** (одинаковые имена, разные значения).
+
+### Обязательные secrets (в test и prod)
 
 | Secret | Назначение |
 |--------|------------|
@@ -30,42 +36,60 @@ sudo mkdir -p /opt/couragegang && sudo chown $USER:$USER /opt/couragegang
 | `POLICY_INTERNAL_API_KEY` | internal API |
 | `SECRETS_INTERNAL_API_KEY` | internal API |
 | `AUDIT_INTERNAL_API_KEY` | internal API |
-| `DB_PASSWORD` | Postgres (в образе `platform-postgres`) |
-| `VPS_HOST` | IP/hostname VPS |
+| `DB_PASSWORD` | Postgres в образе `platform-postgres` |
+| `VPS_HOST` | IP/hostname (может совпадать для test/prod) |
 | `VPS_USER` | SSH user |
-| `VPS_SSH_KEY` | приватный ключ SSH |
+| `VPS_SSH_KEY` | приватный SSH-ключ |
 | `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS |
 
-### Secrets (опционально)
+### Variables (разные для test и prod)
 
-`DEEPSEEK_API_KEY`, `OIDC_*`, `NOTION_*`
+| Variable | Пример test | Пример prod |
+|----------|-------------|-------------|
+| `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
+| `LLM_PROVIDER` | `stub` | `deepseek` |
+| `IMAGE_OWNER` | `couragegang` | то же |
 
-### Variables
-
-| Variable | Пример |
-|----------|--------|
-| `VPS_PUBLIC_BASE_URL` | `https://api.example.com` (OIDC redirect в IAM) |
-| `IMAGE_OWNER` | `couragegang` (если org не совпадает с `github.repository_owner`) |
-| `LLM_PROVIDER` | `deepseek` или `stub` |
+Опциональные secrets: `DEEPSEEK_API_KEY`, `OIDC_*`, `NOTION_*`.
 
 ## Workflow
 
 [`.github/workflows/deploy-vps.yml`](../../.github/workflows/deploy-vps.yml):
 
-1. `prepare-baked-build.sh prod` — секреты из GitHub → `services/*/docker/runtime-baked.env`
-2. `docker compose -f docker-compose.bake.yml build` + `push` → GHCR
-3. SSH: `docker compose pull && up -d`
+1. `environment: test` или `prod` → secrets/vars из соответствующего Environment.
+2. Клон всех BC с ветки **`test`** или **`main`** (по контуру).
+3. `prepare-baked-build.sh <contour>` → bake → push GHCR.
+4. SSH в `/opt/couragegang-<contour>` → `./up.sh <sha>-<contour>`.
 
-Ручной запуск: **Actions → Deploy to VPS → Run workflow**.
+### Триггеры
+
+| Событие | Контур |
+|---------|--------|
+| **Merge / push в `test`** в любом микросервисе | **test** |
+| **Merge / push в `main`** в любом микросервисе | **prod** |
+| Push в **`platform`** (`test` / `main`, paths deploy/config) | test / prod |
+| **Actions → Deploy to VPS** (ручной) | выбор |
+
+Микросервисы: [`.github/workflows/trigger-deploy.yml`](../../templates/service-trigger-deploy.yml) + секрет **`PLATFORM_DEPLOY_TOKEN`**.
+
+Git-flow: [`docs/service-git-workflow.md`](../../docs/service-git-workflow.md).
+
+## Ручной запуск на VPS
+
+```bash
+cd /opt/couragegang-test
+export DEPLOY_CONTOUR=test
+export IMAGE_OWNER=couragegang
+./up.sh abc123def-test
+```
 
 ## Образы GHCR
 
-`ghcr.io/<owner>/iam-service:<sha>`  
-`ghcr.io/<owner>/platform-postgres:<sha>`  
-… и тег `prod-latest` на ветке `main`.
+`ghcr.io/<owner>/iam-service:<sha>-test`  
+`ghcr.io/<owner>/iam-service:test-latest`  
+
+Аналогично для prod: `*-prod`, `prod-latest`.
 
 ## Безопасность
 
-Секреты попадают в **слои образа** — любой с доступом к registry может их извлечь. Для строгой изоляции позже: runtime secrets (Vault) + образы без bake.
-
-Пакеты GHCR для приватных образов: выдайте `GHCR_PULL_TOKEN` только на VPS read-only.
+Секреты в **слоях образа** — отдельные образы для test и prod, разные registry-теги. Доступ к GHCR ограничить; для строгой изоляции позже — runtime secrets без bake.

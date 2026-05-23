@@ -1,44 +1,73 @@
 # Контуры развёртывания (local / test / prod)
 
-Два режима:
+Три контура с единым списком ключей ([`secret-keys.txt`](secret-keys.txt)):
 
-| Режим | Контуры | Секреты |
-|-------|---------|---------|
-| **Локальная разработка** | local, test | `build/runtime.env` + Compose `env_file` (не в образе) |
-| **VPS** | prod | Вшиты в образ (`target baked`), см. `deploy/vps/` |
+| Контур | Где крутится | Секреты | Docker target |
+|--------|--------------|---------|---------------|
+| **local** | Машина разработчика | `platform/.env` + `local.env` → `build/runtime.env` | `local` |
+| **test** | GitHub E2E + **VPS staging** | GitHub Environment **`test`** → bake в образ | `baked` |
+| **prod** | **VPS production** | GitHub Environment **`prod`** → bake в образ | `baked` |
 
-Для local/test перед `docker compose build` скрипт собирает `platform/build/runtime.env`. В Dockerfile по умолчанию stage `local`.
+## Local / CI без bake
 
-## Контуры
-
-| Контур | Источник секретов | Файл дефолтов |
-|--------|-------------------|---------------|
-| **local** | `platform/.env` → `config/contours/local.env` | `local.env` (в git) |
-| **test** | GitHub Environment `test` → env job → `test.env` | `test.env` (CI fallback) |
-| **prod** | GitHub Environment `prod` → env job | `prod.env.example` |
-
-## GitHub
-
-1. **Settings → Environments** — создать `test` и `prod`.
-2. В каждом Environment добавить **Secrets** с именами из [`secret-keys.txt`](secret-keys.txt) (как минимум `JWT_SECRET`, `SECRETS_ENCRYPTION_KEY`, `*_INTERNAL_API_KEY`, `DB_PASSWORD`).
-3. Workflow [`build-images.yml`](../../.github/workflows/build-images.yml) и `e2e.yml` используют `environment: test` и передают secrets в шаг «Prepare runtime secrets».
-
-Локально симуляция test/prod:
+Перед `docker compose build` (обычный `docker-compose.yml`):
 
 ```powershell
-$env:JWT_SECRET = "..."
-.\scripts\fetch-build-secrets.ps1 -Contour test
+.\scripts\fetch-build-secrets.ps1 -Contour local
+docker compose up --build
 ```
 
-## Команды
+Секреты в **`build/runtime.env`**, в образ **не** попадают.
 
-```powershell
-cd platform
-.\scripts\fetch-build-secrets.ps1 -Contour local   # → build/runtime.env
-.\scripts\build-stack.ps1 -Contour local -Up
-```
+## VPS (test и prod)
+
+Оба контура деплоятся **одинаково**: bake → GHCR → pull на VPS. Отличия — **секреты**, **тег образа**, **каталог на сервере**, **порты** (если test и prod на одном хосте).
+
+| | **test** (staging) | **prod** |
+|--|-------------------|----------|
+| GitHub Environment | `test` | `prod` |
+| Каталог на VPS | `/opt/couragegang-test` | `/opt/couragegang-prod` |
+| Тег образа | `<sha>-test`, `test-latest` | `<sha>-prod`, `prod-latest` |
+| Host-порты (если оба на одном VPS) | **18080–18088** | 8080–8088 |
+| Публичный URL (OIDC) | Variable `VPS_PUBLIC_BASE_URL` в env **test** | Variable в env **prod** |
+
+Workflow: [`.github/workflows/deploy-vps.yml`](../.github/workflows/deploy-vps.yml)
+
+- **Merge в `test`** (любой BC или `platform`) → деплой VPS **test**.
+- **Merge в `main`** → деплой VPS **prod**.
+- Ручной запуск: **Actions → Deploy to VPS**.
+
+См. [`docs/service-git-workflow.md`](../docs/service-git-workflow.md).
+
+На сервере:
 
 ```bash
-./scripts/fetch-build-secrets.sh test
-DEPLOY_CONTOUR=test docker compose -f docker-compose.yml build
+cd /opt/couragegang-test   # или couragegang-prod
+DEPLOY_CONTOUR=test IMAGE_TAG=abc123-test ./up.sh
+```
+
+## GitHub Environments
+
+Создать **`test`** и **`prod`** в репозитории **platform**.
+
+В **обоих** — одинаковые **имена** secrets (значения разные), см. [`secret-keys.txt`](secret-keys.txt).
+
+Для VPS в **test** и **prod** нужны как минимум:
+
+- `JWT_SECRET`, `SECRETS_ENCRYPTION_KEY`, `*_INTERNAL_API_KEY`, `DB_PASSWORD`
+- `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_PULL_TOKEN`
+
+Variables:
+
+- `VPS_PUBLIC_BASE_URL` — базовый URL API для OIDC redirect (разный для test/prod)
+- `LLM_PROVIDER` — `stub` или `deepseek`
+
+Подробнее: [`docs/github-environments.md`](../docs/github-environments.md), [`deploy/vps/README.md`](../deploy/vps/README.md).
+
+## Команды bake локально
+
+```bash
+export DEPLOY_CONTOUR=test
+./scripts/prepare-baked-build.sh test
+DEPLOY_CONTOUR=test docker compose -f docker-compose.bake.yml build
 ```

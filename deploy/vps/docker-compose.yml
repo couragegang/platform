@@ -1,7 +1,8 @@
 # VPS: только pull готовых образов. Без .env и env_file на сервере.
-# Запуск: IMAGE_TAG=<sha> ./up.sh
+# Запуск: DEPLOY_CONTOUR=test|prod IMAGE_TAG=<sha>-<contour> ./up.sh
+# test на том же хосте, что prod — оверлей docker-compose.ports-test.yml (порты 18080+)
 
-name: couragegang-prod
+name: couragegang-${DEPLOY_CONTOUR:-prod}
 
 services:
   postgres:

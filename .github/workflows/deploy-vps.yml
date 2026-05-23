@@ -3,15 +3,24 @@ name: Deploy to VPS
 on:
   workflow_dispatch:
     inputs:
+      contour:
+        description: Deploy contour (test = staging VPS, prod = production)
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - prod
       image_tag:
-        description: Image tag (default = commit SHA)
+        description: Override image tag (default = sha-contour)
         required: false
       skip_deploy:
         description: Build and push only (skip SSH deploy)
         type: boolean
         default: false
+  # Merge в platform (main→prod, test→test)
   push:
-    branches: [main]
+    branches: [main, test]
     paths:
       - "docker-compose.bake.yml"
       - "deploy/**"
@@ -19,27 +28,63 @@ on:
       - "config/**"
       - "scripts/**"
       - ".github/workflows/deploy-vps.yml"
+  # Merge в любой микросервис (см. services/*/.github/workflows/trigger-deploy.yml)
+  repository_dispatch:
+    types: [deploy-vps]
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: deploy-vps-${{ github.ref }}
+  group: deploy-vps-${{ github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}
   cancel-in-progress: true
 
-env:
-  IMAGE_REGISTRY: ghcr.io
-  IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
-  IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
-
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      contour: ${{ steps.meta.outputs.contour }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      trigger_repo: ${{ steps.meta.outputs.trigger_repo }}
+    steps:
+      - id: meta
+        run: |
+          contour=""
+          tag=""
+          repo=""
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            contour="${{ github.event.client_payload.contour }}"
+            tag="${{ github.event.client_payload.sha }}-${contour}"
+            repo="${{ github.event.client_payload.repository }}"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            contour="${{ github.event.inputs.contour }}"
+            tag="${{ github.sha }}-${contour}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            contour="prod"
+            tag="${{ github.sha }}-prod"
+          else
+            contour="test"
+            tag="${{ github.sha }}-test"
+          fi
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            tag="${{ github.event.inputs.image_tag }}"
+          fi
+          echo "contour=$contour" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "trigger_repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "Deploy contour=$contour tag=$tag trigger=$repo"
+
   build-and-push:
+    needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    environment: prod
+    environment: ${{ needs.resolve.outputs.contour }}
     env:
-      DEPLOY_CONTOUR: prod
+      DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      IMAGE_REGISTRY: ghcr.io
+      IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+      IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
       CONFIG_INTERNAL_API_KEY: ${{ secrets.CONFIG_INTERNAL_API_KEY }}
@@ -59,13 +104,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout microservices
+      - name: Checkout microservices (branch test or main)
         run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
 
       - name: Bake config into service build contexts
         run: |
           chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
-          ./scripts/prepare-baked-build.sh prod
+          ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR"
           DB_PASSWORD="$(grep '^DB_PASSWORD=' build/runtime-secrets.env | cut -d= -f2- | tr -d '"')"
           echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
 
@@ -85,24 +130,29 @@ jobs:
         env:
           OWNER: ${{ env.IMAGE_OWNER }}
           TAG: ${{ env.IMAGE_TAG }}
+          CONTOUR: ${{ env.DEPLOY_CONTOUR }}
         run: |
           docker compose -f docker-compose.bake.yml push
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            for svc in platform-postgres config-service policy-service secrets-service audit-service iam-service mcp-gateway knowledge-service ai-runtime bff-gateway; do
-              src="ghcr.io/${OWNER}/${svc}:${TAG}"
-              dst="ghcr.io/${OWNER}/${svc}:prod-latest"
-              docker pull "$src"
-              docker tag "$src" "$dst"
-              docker push "$dst"
-            done
-          fi
+          latest_tag="${CONTOUR}-latest"
+          for svc in platform-postgres config-service policy-service secrets-service audit-service iam-service mcp-gateway knowledge-service ai-runtime bff-gateway; do
+            src="ghcr.io/${OWNER}/${svc}:${TAG}"
+            dst="ghcr.io/${OWNER}/${svc}:${latest_tag}"
+            docker pull "$src"
+            docker tag "$src" "$dst"
+            docker push "$dst"
+          done
 
   deploy:
-    needs: build-and-push
-    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.skip_deploy != true) }}
+    needs: [resolve, build-and-push]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_deploy != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: prod
+    environment: ${{ needs.resolve.outputs.contour }}
+    env:
+      DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+      IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+      VPS_DEPLOY_DIR: /opt/couragegang-${{ needs.resolve.outputs.contour }}
     steps:
       - uses: actions/checkout@v4
 
@@ -113,8 +163,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          source: deploy/vps/docker-compose.yml,deploy/vps/up.sh
-          target: /opt/couragegang
+          source: deploy/vps/docker-compose.yml,deploy/vps/docker-compose.ports-test.yml,deploy/vps/up.sh
+          target: ${{ env.VPS_DEPLOY_DIR }}
           strip_components: 2
 
       - name: Pull and restart on VPS
@@ -122,17 +172,21 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          DEPLOY_CONTOUR: ${{ env.DEPLOY_CONTOUR }}
+          VPS_DEPLOY_DIR: ${{ env.VPS_DEPLOY_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          envs: IMAGE_TAG,IMAGE_OWNER
+          envs: IMAGE_TAG,IMAGE_OWNER,DEPLOY_CONTOUR,VPS_DEPLOY_DIR
           script: |
             set -e
-            cd /opt/couragegang
+            mkdir -p "$VPS_DEPLOY_DIR"
+            cd "$VPS_DEPLOY_DIR"
             chmod +x up.sh
             echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             export IMAGE_TAG="${IMAGE_TAG}"
             export IMAGE_OWNER="${IMAGE_OWNER}"
+            export DEPLOY_CONTOUR="${DEPLOY_CONTOUR}"
             ./up.sh "${IMAGE_TAG}"
