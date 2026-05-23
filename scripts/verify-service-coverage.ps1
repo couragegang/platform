@@ -1,6 +1,7 @@
-# JaCoCo branch >= 80% for each Java service (requires JDK 21 via Gradle toolchain)
+# JaCoCo branch >= 80% for each Java service (JDK 21 via Docker gradle image)
 $ErrorActionPreference = "Stop"
 $servicesRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\services")
+$gradleImage = if ($env:GRADLE_DOCKER_IMAGE) { $env:GRADLE_DOCKER_IMAGE } else { "gradle:8.10.2-jdk21" }
 $services = @(
     "iam-service",
     "policy-service",
@@ -15,13 +16,9 @@ $services = @(
 $failed = @()
 foreach ($name in $services) {
     Write-Host "`n=== $name ===" -ForegroundColor Cyan
-    Push-Location (Join-Path $servicesRoot $name)
-    try {
-        & .\gradlew.bat test jacocoTestCoverageVerification --no-daemon -q
-        if ($LASTEXITCODE -ne 0) { $failed += $name }
-    } finally {
-        Pop-Location
-    }
+    $dir = (Join-Path $servicesRoot $name)
+    docker run --rm -v "${dir}:/app" -w /app $gradleImage gradle test jacocoTestCoverageVerification --no-daemon -q
+    if ($LASTEXITCODE -ne 0) { $failed += $name }
 }
 if ($failed.Count -gt 0) {
     Write-Error "Coverage check failed: $($failed -join ', ')"
