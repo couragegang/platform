@@ -2,7 +2,8 @@
   "required_status_checks": {
     "strict": false,
     "checks": [
-      "E2E integration tests / e2e"
+      "Unit tests / gradle",
+      "Functional tests / pytest"
     ]
   },
   "enforce_admins": true,

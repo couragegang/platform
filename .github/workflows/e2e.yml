@@ -2,10 +2,14 @@ name: E2E integration tests
 
 on:
   push:
-    branches: [main]
+    branches: [test, main]
   pull_request:
-    branches: [main]
+    branches: [test, main]
   workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -25,14 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve test suite (smoke vs regress)
+        id: suite
+        run: |
+          chmod +x scripts/*.sh
+          source scripts/resolve-functional-suite.sh
+          echo "suite=$SUITE" >> "$GITHUB_OUTPUT"
+
       - name: Checkout microservices
-        run: chmod +x scripts/checkout-services.sh && ./scripts/checkout-services.sh
+        run: ./scripts/checkout-services.sh
 
       - name: Prepare runtime secrets (contour test)
-        run: chmod +x scripts/fetch-build-secrets.sh && ./scripts/fetch-build-secrets.sh test
+        run: ./scripts/fetch-build-secrets.sh test
 
       - name: Build and start stack
-        working-directory: .
         env:
           DOCKER_BUILDKIT: "1"
         run: |
@@ -69,16 +79,15 @@ jobs:
         working-directory: tests/e2e
         run: pytest -m smoke --tb=short -q
 
-      - name: Run E2E (HTTP + DB)
+      - name: Regress tests
+        if: steps.suite.outputs.suite == 'regress'
         working-directory: tests/e2e
-        run: pytest -m "phase1 or k or a" --tb=short
+        run: pytest -m regress --tb=short -q
 
       - name: Compose logs on failure
         if: failure()
-        working-directory: .
         run: docker compose logs --tail=100
 
       - name: Tear down
         if: always()
-        working-directory: .
         run: docker compose down -v

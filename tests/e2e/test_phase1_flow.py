@@ -8,7 +8,7 @@ from lib.config import BFF_URL, IAM_URL, MCP_URL, NOTION_TOKEN
 from lib.db_verify import audit_install_events, mcp_installation_row, policy_rules_count
 from lib.http_client import ApiSession
 
-pytestmark = pytest.mark.phase1
+pytestmark = [pytest.mark.phase1, pytest.mark.regress]
 
 
 def test_register_creates_org_and_default_workspace(session: ApiSession):

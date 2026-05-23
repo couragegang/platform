@@ -7,7 +7,7 @@ from lib.chat_assert import expected_chat_status, parse_chat_response
 from lib.config import BFF_URL, IAM_URL, KNOWLEDGE_URL, NOTION_TOKEN
 from lib.http_client import ApiSession
 
-pytestmark = pytest.mark.k
+pytestmark = [pytest.mark.k, pytest.mark.regress]
 
 
 class TestK1Auth:

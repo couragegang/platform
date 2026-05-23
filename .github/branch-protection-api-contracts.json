@@ -2,7 +2,8 @@
   "required_status_checks": {
     "strict": false,
     "checks": [
-      "E2E integration tests / e2e"
+      "canonical vs service mirrors / contract-freshness",
+      "OpenAPI lint (Redocly) / redocly-lint"
     ]
   },
   "enforce_admins": true,

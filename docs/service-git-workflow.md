@@ -51,9 +51,45 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 
 Файл **`.github/workflows/trigger-deploy.yml`** (шаблон: [`templates/service-trigger-deploy.yml`](../templates/service-trigger-deploy.yml)).
 
-### 3. Protected branches
+### 3. Автотесты (pytest + unit) и merge gate
 
-В **platform** (и по той же схеме в каждом BC): правила для **`test`** и **`main`**.
+В каждом **микросервисе** (кроме `api-contracts`):
+
+| Workflow | Check в PR | Когда |
+|----------|------------|--------|
+| [`unit-tests.yml`](../templates/service-unit-tests.yml) | **Unit tests / gradle** | PR и push в `test` / `main` |
+| [`functional-tests.yml`](../templates/service-functional-tests.yml) | **Functional tests / pytest** | PR и push в `test` / `main` |
+
+**Набор pytest** (в `tests/functional/` репозитория BC):
+
+| Событие | Маркер | Содержание |
+|---------|--------|------------|
+| MR / merge в **`test`** | `smoke` | health + критичный путь BC |
+| MR / merge в **`main`** | `regress` | расширенные сценарии BC |
+
+Логика выбора: [`scripts/resolve-functional-suite.sh`](../scripts/resolve-functional-suite.sh).
+
+**Platform** (полный стек): workflow [`e2e.yml`](../.github/workflows/e2e.yml) — smoke на PR/push в `test`, regress на PR/push в `main`. Check: **E2E integration tests / e2e**.
+
+**api-contracts:** [`quality.yml`](../../services/api-contracts/.github/workflows/quality.yml) — зеркала + Redocly.
+
+Установка в BC после изменения шаблонов:
+
+```powershell
+.\scripts\install-service-ci.ps1
+```
+
+Секреты для functional CI — Environment **`test`** в репозитории BC (те же имена, что в platform: `JWT_SECRET`, `DB_PASSWORD`, …).
+
+### 4. Protected branches
+
+В **platform** (и по той же схеме в каждом BC): правила для **`test`** и **`main`**. Merge **заблокирован**, пока не зелёные required checks.
+
+| Репозиторий | Required checks |
+|-------------|-----------------|
+| BC (iam, bff, …) | `Unit tests / gradle`, `Functional tests / pytest` |
+| **platform** | `E2E integration tests / e2e` |
+| **api-contracts** | `canonical vs service mirrors / contract-freshness`, `OpenAPI lint (Redocly) / redocly-lint` |
 
 | Правило | Значение |
 |---------|----------|
@@ -73,18 +109,18 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 
 Шаблон для BC: [`templates/auto-approve-internal-prs.yml`](../templates/auto-approve-internal-prs.yml).
 
-Повторно применить для **platform** (нужен `gh` и права admin):
+Повторно применить (нужен `gh` и права admin):
 
 ```powershell
-gh api --method PUT repos/couragegang/platform/branches/main/protection `
-  --input .github/branch-protection.json
-gh api --method PUT repos/couragegang/platform/branches/test/protection `
-  --input .github/branch-protection.json
+cd platform
+.\scripts\apply-branch-protection.ps1
+.\scripts\apply-bc-branch-protection.ps1
+.\scripts\apply-branch-protection.ps1 -Repo couragegang/api-contracts -Contracts
 ```
 
-Шаблон JSON: [`.github/branch-protection.json`](../.github/branch-protection.json).
+Шаблоны JSON: [`.github/branch-protection.json`](../.github/branch-protection.json) (platform), [`.github/branch-protection-bc.json`](../.github/branch-protection-bc.json) (BC).
 
-### 4. Environments `test` / `prod` в **platform**
+### 5. Environments `test` / `prod` в **platform**
 
 Секреты VPS и платформы — только в репозитории **platform** (см. [`github-environments.md`](github-environments.md)).
 

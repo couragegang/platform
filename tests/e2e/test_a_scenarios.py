@@ -6,7 +6,7 @@ import requests
 from lib.config import AUDIT_URL, BFF_URL, IAM_URL, KNOWLEDGE_URL, NOTION_TOKEN, POLICY_URL
 from lib.http_client import ApiSession
 
-pytestmark = pytest.mark.a
+pytestmark = [pytest.mark.a, pytest.mark.regress]
 
 
 class TestA1Members:
