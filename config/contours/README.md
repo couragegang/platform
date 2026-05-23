@@ -1,5 +1,7 @@
 # Контуры развёртывания (local / test / prod)
 
+**Полный runbook (запуск, тесты, VPS, troubleshooting):** [`docs/runbook-all-contours.md`](../docs/runbook-all-contours.md).
+
 Три контура с единым списком ключей ([`secret-keys.txt`](secret-keys.txt)):
 
 | Контур | Где крутится | Секреты | Docker target |
