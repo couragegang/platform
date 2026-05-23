@@ -148,13 +148,14 @@ docker compose down -v       # + удалить volume postgres
 
 ```powershell
 cd platform
-.\scripts\verify-service-coverage.ps1              # все 9 BC, по одному
-.\scripts\verify-service-coverage.ps1 -Parallel 4  # все 9 BC, ~4–6 мин (рекомендуется)
+.\scripts\verify-service-coverage.ps1                    # только BC с локальными git-изменениями
+.\scripts\verify-service-coverage.ps1 -Parallel 4        # то же, параллельно
+.\scripts\verify-service-coverage.ps1 -All -Parallel 4  # все 9 BC (~4–6 мин)
 .\scripts\verify-service-coverage.ps1 -Services iam-service
-.\scripts\verify-service-coverage.ps1 -UseLocalGradle   # без Docker, нужен JDK 21 на PATH
+.\scripts\verify-service-coverage.ps1 -UseLocalGradle      # без Docker, нужен JDK 21 на PATH
 ```
 
-Порог: branch coverage **≥ 80%** в каждом BC. По умолчанию Gradle в Docker (`gradle:8.10.2-jdk21`), кэш `~/.gradle` монтируется в контейнер. `push-if-green.ps1` вызывает скрипт с `-Parallel 4`.
+Порог: branch coverage **≥ 80%** в каждом BC. По умолчанию проверяются только репозитории в `services/*` с ненулевым `git status --porcelain`; если изменений нет — гейт пропускается. Gradle в Docker (`gradle:8.10.2-jdk21`), кэш `~/.gradle` монтируется в контейнер. `push-if-green.ps1` вызывает скрипт с `-Parallel 4` (только изменённые BC).
 
 #### E2E pytest (полный стек platform)
 

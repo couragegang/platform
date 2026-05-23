@@ -1,11 +1,13 @@
 # JaCoCo branch >= 80% for each Java service (JDK 21 via Docker or local gradlew).
+# By default runs only BC repos with local git changes under services/.
 # Usage:
 #   .\verify-service-coverage.ps1
+#   .\verify-service-coverage.ps1 -All -Parallel 4
 #   .\verify-service-coverage.ps1 -Services iam-service,policy-service
-#   .\verify-service-coverage.ps1 -Parallel 4
 #   .\verify-service-coverage.ps1 -UseLocalGradle
 param(
     [string[]]$Services = @(),
+    [switch]$All,
     [int]$Parallel = 1,
     [switch]$UseLocalGradle,
     [switch]$NoGradleCache
@@ -33,11 +35,49 @@ $servicesRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\services")
 $gradleImage = if ($env:GRADLE_DOCKER_IMAGE) { $env:GRADLE_DOCKER_IMAGE } else { "gradle:8.10.2-jdk21" }
 $gradleCacheHost = if ($env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME } else { Join-Path $env:USERPROFILE ".gradle" }
 
+function Get-ChangedServiceRepos {
+    param(
+        [string]$Root,
+        [string[]]$Known
+    )
+    $changed = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $Known) {
+        $dir = Join-Path $Root $name
+        if (-not (Test-Path $dir)) { continue }
+        if (-not (Test-Path (Join-Path $dir ".git"))) { continue }
+        $status = git -C $dir status --porcelain 2>$null
+        if ($status) {
+            $changed.Add($name)
+        }
+    }
+    return @($changed)
+}
+
 if ($Parallel -lt 1) {
     Write-Error "-Parallel must be >= 1"
 }
 
-$toRun = if ($Services.Count -gt 0) { @($Services) } else { $AllServices }
+if ($Services.Count -gt 0 -and $All) {
+    Write-Error "Use either -Services or -All, not both"
+}
+
+$toRun = @()
+if ($Services.Count -gt 0) {
+    $toRun = @($Services)
+}
+elseif ($All) {
+    $toRun = $AllServices
+}
+else {
+    $toRun = Get-ChangedServiceRepos -Root $servicesRoot -Known $AllServices
+    if ($toRun.Count -eq 0) {
+        Write-Host "No local changes in Java BC repos under $servicesRoot - coverage gate skipped." -ForegroundColor Yellow
+        Write-Host "Use -All to run all services, or -Services name to force one BC." -ForegroundColor DarkGray
+        exit 0
+    }
+    Write-Host "Changed BC repos: $($toRun -join ', ')" -ForegroundColor Cyan
+}
+
 foreach ($name in $toRun) {
     if ($name -notin $AllServices) {
         Write-Error "Unknown service '$name'. Allowed: $($AllServices -join ', ')"

@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $PlatformRoot = Split-Path -Parent $PSScriptRoot
 $WorkspaceRoot = Split-Path -Parent $PlatformRoot
 
-Write-Host "=== Unit tests + JaCoCo (Docker, parallel) ===" -ForegroundColor Cyan
+Write-Host "=== Unit tests + JaCoCo (changed BC only, Docker, parallel) ===" -ForegroundColor Cyan
 & "$PlatformRoot\scripts\verify-service-coverage.ps1" -Parallel 4
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Unit/coverage gate failed. Push aborted."
