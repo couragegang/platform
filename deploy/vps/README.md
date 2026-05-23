@@ -41,6 +41,7 @@ sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod
 | `VPS_USER` | SSH user |
 | `VPS_SSH_KEY` | приватный SSH-ключ |
 | `GHCR_PULL_TOKEN` | PAT `read:packages` для pull на VPS |
+| `GHCR_PULL_USER` (variable) | Username владельца PAT (напр. `d3byte`), **не** org `couragegang` |
 
 ### Variables (разные для test и prod)
 

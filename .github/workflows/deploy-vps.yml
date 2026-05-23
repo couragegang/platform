@@ -232,6 +232,7 @@ jobs:
       VPS_COMPOSE_SERVICE: ${{ needs.resolve.outputs.vps_compose_service }}
       IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
       IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+      GHCR_PULL_USER: ${{ vars.GHCR_PULL_USER }}
       VPS_DEPLOY_DIR: /opt/couragegang-${{ needs.resolve.outputs.contour }}
     steps:
       - uses: actions/checkout@v4
@@ -253,6 +254,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          GHCR_PULL_USER: ${{ env.GHCR_PULL_USER }}
           DEPLOY_CONTOUR: ${{ env.DEPLOY_CONTOUR }}
           DEPLOY_SCOPE: ${{ env.DEPLOY_SCOPE }}
           VPS_COMPOSE_SERVICE: ${{ env.VPS_COMPOSE_SERVICE }}
@@ -262,7 +264,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          envs: IMAGE_TAG,IMAGE_OWNER,DEPLOY_CONTOUR,DEPLOY_SCOPE,VPS_COMPOSE_SERVICE,VPS_DEPLOY_DIR
+          envs: IMAGE_TAG,IMAGE_OWNER,GHCR_PULL_USER,DEPLOY_CONTOUR,DEPLOY_SCOPE,VPS_COMPOSE_SERVICE,VPS_DEPLOY_DIR
           script: |
             set -e
             mkdir -p "$VPS_DEPLOY_DIR"
@@ -275,7 +277,12 @@ jobs:
             sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-test.yml 2>/dev/null || true
             chmod +x up.sh
             unset COMPOSE_FILE
-            echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            GHCR_USER="${GHCR_PULL_USER:-}"
+            if [[ -z "$GHCR_USER" ]]; then
+              echo "Set Environment variable GHCR_PULL_USER to the GitHub username that owns GHCR_PULL_TOKEN (not the org name)." >&2
+              exit 1
+            fi
+            echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             export IMAGE_TAG="${IMAGE_TAG}"
             export IMAGE_OWNER="${IMAGE_OWNER}"
             export DEPLOY_CONTOUR="${DEPLOY_CONTOUR}"
