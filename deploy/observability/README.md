@@ -6,7 +6,9 @@
 |-----------|------|
 | **prometheus-test** | Scrape `18080–18088` (VPS test) |
 | **prometheus-prod** | Scrape `8080–8088` (VPS prod / local) |
-| **grafana** | UI; data sources **Prometheus-Test** и **Prometheus-Prod** |
+| **grafana** | UI; data sources **Prometheus-Test** и **Prometheus-Prod** (default: Prod) |
+
+На VPS в compose **не** монтируется вся `grafana/provisioning/` — иначе подхватывается `datasources.local.yml` и Grafana падает с *two default datasources*.
 
 Метрики приложений: `GET /v1/<bc>/prometheus` (не `/metrics`). Стандарт: [`docs/metrics-golden-signals.md`](../../docs/metrics-golden-signals.md).
 
