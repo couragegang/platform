@@ -1,2 +1,4 @@
 .env
 *.log
+tests/e2e/.venv/
+tests/e2e/**/__pycache__/
