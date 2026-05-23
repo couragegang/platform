@@ -31,3 +31,16 @@ SERVICES_HEALTH = {
     "secrets": f"{SECRETS_URL}/health",
     "knowledge": f"{KNOWLEDGE_URL}/health",
 }
+
+# Micronaut Prometheus endpoint (endpoints.prometheus.path=metrics)
+SERVICES_METRICS = {
+    "iam": f"{IAM_URL}/prometheus",
+    "bff": f"{BFF_URL}/prometheus",
+    "mcp": f"{MCP_URL}/prometheus",
+    "ai": f"{AI_URL}/prometheus",
+    "config": f"{CONFIG_URL}/prometheus",
+    "policy": f"{POLICY_URL}/prometheus",
+    "audit": f"{AUDIT_URL}/prometheus",
+    "secrets": f"{SECRETS_URL}/prometheus",
+    "knowledge": f"{KNOWLEDGE_URL}/prometheus",
+}

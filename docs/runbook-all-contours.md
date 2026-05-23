@@ -148,10 +148,13 @@ docker compose down -v       # + удалить volume postgres
 
 ```powershell
 cd platform
-.\scripts\verify-service-coverage.ps1
+.\scripts\verify-service-coverage.ps1              # все 9 BC, по одному
+.\scripts\verify-service-coverage.ps1 -Parallel 4  # все 9 BC, ~4–6 мин (рекомендуется)
+.\scripts\verify-service-coverage.ps1 -Services iam-service
+.\scripts\verify-service-coverage.ps1 -UseLocalGradle   # без Docker, нужен JDK 21 на PATH
 ```
 
-Порог: branch coverage **≥ 80%** в каждом BC (Gradle в Docker).
+Порог: branch coverage **≥ 80%** в каждом BC. По умолчанию Gradle в Docker (`gradle:8.10.2-jdk21`), кэш `~/.gradle` монтируется в контейнер. `push-if-green.ps1` вызывает скрипт с `-Parallel 4`.
 
 #### E2E pytest (полный стек platform)
 
@@ -424,6 +427,30 @@ cd services\api-contracts
 
 ---
 
+## 8. Grafana и Prometheus
+
+| Компонент | Local | VPS |
+|-----------|-------|-----|
+| Grafana UI | http://localhost:3000 | http://`<VPS>`:3000 |
+| Prometheus | **один** контейнер `:9090` → scrape **8080–8088** | **два**: test (1808x) + prod (808x) |
+| Data source в Grafana | **Prometheus-Prod** | **Prometheus-Test** + **Prometheus-Prod** |
+
+**Local:**
+
+```powershell
+cd platform
+docker compose up -d --build
+cd deploy\observability
+copy .env.example .env
+.\up-local.ps1
+```
+
+**VPS:** `/opt/couragegang-observability`, `OBSERVABILITY_PROFILE=vps ./up.sh`, workflow **Deploy observability**.
+
+Подробнее: [`deploy/observability/README.md`](../deploy/observability/README.md).
+
+---
+
 ## 9. Что куда смотреть дальше
 
 | Задача | Документ |
@@ -431,6 +458,7 @@ cd services\api-contracts
 | Список секретов | [`config/contours/secret-keys.txt`](../config/contours/secret-keys.txt) |
 | UI / API сценарии | [`cursor-context/docs/ui-api-scenarios.md`](../../cursor-context/docs/ui-api-scenarios.md) |
 | Handoff для агента | [`cursor-context/context.md`](../../cursor-context/context.md) |
+| Grafana / Prometheus | [`deploy/observability/README.md`](../deploy/observability/README.md) |
 | Контракты OpenAPI | [`services/api-contracts/README.md`](../../services/api-contracts/README.md) |
 
 *Документ актуален для ветки `test` платформы (контуры local / CI test / VPS test+prod, порты 808x / 1808x).*

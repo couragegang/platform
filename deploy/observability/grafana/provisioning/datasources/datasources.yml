@@ -1,0 +1,26 @@
+# Одна Grafana — два Prometheus (test / prod). Переключение в UI или в дашборде (переменная datasource).
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus-Test
+    type: prometheus
+    uid: prometheus-test
+    access: proxy
+    url: http://prometheus-test:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+
+  - name: Prometheus-Prod
+    type: prometheus
+    uid: prometheus-prod
+    access: proxy
+    url: http://prometheus-prod:9090
+    isDefault: false
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s

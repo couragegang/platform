@@ -1,0 +1,55 @@
+# Prometheus: контур prod (VPS / local host-порты 8080–8088).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    contour: prod
+    monitor: couragegang-platform
+
+scrape_configs:
+  - job_name: iam
+    metrics_path: /v1/iam/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels: { service: iam }
+  - job_name: mcp
+    metrics_path: /v1/mcp/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+        labels: { service: mcp }
+  - job_name: bff
+    metrics_path: /v1/bff/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8082"]
+        labels: { service: bff }
+  - job_name: ai
+    metrics_path: /v1/ai/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8083"]
+        labels: { service: ai }
+  - job_name: config
+    metrics_path: /v1/config/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8084"]
+        labels: { service: config }
+  - job_name: policy
+    metrics_path: /v1/policy/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8085"]
+        labels: { service: policy }
+  - job_name: audit
+    metrics_path: /v1/audit/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8086"]
+        labels: { service: audit }
+  - job_name: secrets
+    metrics_path: /v1/secrets/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8087"]
+        labels: { service: secrets }
+  - job_name: knowledge
+    metrics_path: /v1/knowledge/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8088"]
+        labels: { service: knowledge }

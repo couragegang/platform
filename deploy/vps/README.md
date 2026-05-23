@@ -16,11 +16,13 @@
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER
-sudo mkdir -p /opt/couragegang-test /opt/couragegang-prod
-sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod
+sudo mkdir -p /opt/couragegang-test /opt/couragegang-prod /opt/couragegang-observability
+sudo chown -R $USER:$USER /opt/couragegang-test /opt/couragegang-prod /opt/couragegang-observability
 ```
 
 Файлы compose и `up.sh` копирует GitHub Actions в нужный каталог.
+
+**Grafana + Prometheus (test/prod data sources):** отдельный каталог [`/opt/couragegang-observability`](../observability/README.md), workflow **Deploy observability** — не смешивается с `couragegang-test` / `couragegang-prod`.
 
 ## GitHub Environments
 

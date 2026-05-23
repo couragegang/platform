@@ -31,6 +31,7 @@
 | `VPS_HOST` | IP/hostname VPS |
 | `VPS_USER` | SSH user |
 | `VPS_SSH_KEY` | Приватный SSH-ключ |
+| `GRAFANA_ADMIN_PASSWORD` | Пароль admin Grafana (workflow **Deploy observability**) |
 | `GHCR_PULL_TOKEN` | *(опционально)* PAT для ручного `docker pull` на VPS вне CI; в **deploy-vps** pull идёт через `GITHUB_TOKEN` + org `${{ github.repository_owner }}` |
 
 Опционально:
@@ -52,6 +53,8 @@
 | `LLM_PROVIDER` | `stub` | `deepseek` |
 | `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
 | `IMAGE_OWNER` | `couragegang` | `couragegang` |
+| `GRAFANA_ROOT_URL` | `http://<vps>:3000` | то же (одна Grafana на хост) |
+| `GRAFANA_HOST_PORT` | `3000` | `3000` |
 
 ## 5. Как секреты попадают в runtime
 
@@ -76,6 +79,7 @@
 | `e2e.yml` | `test` | нет (только CI compose) |
 | `build-images.yml` | `test` или `prod` (dispatch) | нет |
 | `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да |
+| `deploy-observability.yml` | `test` (SSH на тот же VPS) | `/opt/couragegang-observability` |
 | `trigger-deploy.yml` (в каждом BC) | — | шлёт dispatch в platform |
 
 ### Секрет в микросервисах (не в platform)

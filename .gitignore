@@ -9,3 +9,8 @@ tests/e2e/.venv/
 tests/e2e/**/__pycache__/
 templates/**/__pycache__/
 **/__pycache__/
+
+# Grafana: synced from services/*/grafana (scripts/sync-grafana-dashboards.*)
+deploy/observability/grafana/dashboards/*-service/
+deploy/observability/grafana/dashboards/*-gateway/
+deploy/observability/grafana/dashboards/ai-runtime/

@@ -1,0 +1,87 @@
+name: Deploy observability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [test, main]
+    paths:
+      - "deploy/observability/**"
+      - "scripts/sync-grafana-dashboards.*"
+      - "scripts/generate-grafana-dashboard.py"
+      - ".github/workflows/deploy-observability.yml"
+  repository_dispatch:
+    types: [deploy-observability]
+
+concurrency:
+  group: deploy-observability
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # VPS SSH secrets — в Environment test (тот же хост, что test/prod стеки)
+    environment: test
+    env:
+      VPS_DEPLOY_DIR: /opt/couragegang-observability
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout microservices (dashboard sources)
+        run: |
+          chmod +x scripts/checkout-services.sh scripts/sync-grafana-dashboards.sh
+          ./scripts/checkout-services.sh
+          ./scripts/sync-grafana-dashboards.sh
+
+      - name: Sync observability stack to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: deploy/observability/*
+          target: ${{ env.VPS_DEPLOY_DIR }}/
+          strip_components: 2
+          overwrite: true
+
+      - name: Start Grafana + Prometheus on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          VPS_DEPLOY_DIR: ${{ env.VPS_DEPLOY_DIR }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_ROOT_URL: ${{ vars.GRAFANA_ROOT_URL }}
+          GRAFANA_HOST_PORT: ${{ vars.GRAFANA_HOST_PORT }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          envs: VPS_DEPLOY_DIR,GRAFANA_ADMIN_PASSWORD,GRAFANA_ROOT_URL,GRAFANA_HOST_PORT
+          script: |
+            set -e
+            mkdir -p "$VPS_DEPLOY_DIR"
+            cd "$VPS_DEPLOY_DIR"
+            if [[ ! -f docker-compose.yml || ! -f up.sh ]]; then
+              echo "observability files missing in $VPS_DEPLOY_DIR" >&2
+              ls -la "$VPS_DEPLOY_DIR" || true
+              exit 1
+            fi
+            sed -i 's/\r$//' up.sh 2>/dev/null || true
+            chmod +x up.sh
+            if [[ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
+              echo "Set secret GRAFANA_ADMIN_PASSWORD in GitHub Environment test" >&2
+              exit 1
+            fi
+            cat > .env <<EOF
+            GRAFANA_ADMIN_USER=admin
+            GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+            GRAFANA_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3000}
+            GRAFANA_HOST_PORT=${GRAFANA_HOST_PORT:-3000}
+            EOF
+            sed -i 's/^[[:space:]]*//' .env
+            export OBSERVABILITY_PROFILE=vps
+            bash ./up.sh

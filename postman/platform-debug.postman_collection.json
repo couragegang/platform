@@ -1,0 +1,703 @@
+{
+  "info": {
+    "_postman_id": "platform-debug-collection",
+    "name": "Platform — debug (local compose)",
+    "description": "Коллекция для отладки backend MVP (порты 8080–8088).\n\n**Импорт:** File → Import → оба файла из `platform/postman/`.\n\n**Окружение:** выберите `Platform — local (docker compose)`.\n\n**Быстрый старт:**\n1. `docker compose up -d --build` в `platform/`\n2. Папка `00 Setup` → Run folder (Register → Me → Org → Workspaces)\n3. Health / доменные запросы\n\nКонтракты: `services/api-contracts/*/openapi.yaml`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('debugEmail')) {",
+          "  pm.environment.set('debugEmail', 'debug-' + Date.now() + '@example.com');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Setup (auth + context)",
+      "description": "Запустите папку целиком (Collection Runner) после поднятия compose. Заполняет accessToken, orgId, workspaceId.",
+      "item": [
+        {
+          "name": "Register (new user + org)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('accessToken', j.accessToken);",
+                  "pm.environment.set('refreshToken', j.refreshToken || '');",
+                  "pm.environment.set('debugEmail', pm.request.body.raw ? JSON.parse(pm.request.body.raw).email : pm.environment.get('debugEmail'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{debugEmail}}\",\n  \"password\": \"{{e2ePassword}}\",\n  \"displayName\": \"Postman Debug\",\n  \"organizationName\": \"Debug Org\"\n}"
+            },
+            "url": "{{iamBase}}/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('accessToken', j.accessToken);",
+                  "pm.environment.set('refreshToken', j.refreshToken || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{debugEmail}}\",\n  \"password\": \"{{e2ePassword}}\"\n}"
+            },
+            "url": "{{iamBase}}/auth/login"
+          }
+        },
+        {
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('accessToken', j.accessToken);",
+                  "if (j.refreshToken) pm.environment.set('refreshToken', j.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{iamBase}}/auth/refresh"
+          }
+        },
+        {
+          "name": "IAM Me → userId, orgId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('userId', j.user.id);",
+                  "const orgs = j.organizations || [];",
+                  "pm.test('has org', () => pm.expect(orgs.length).to.be.above(0));",
+                  "const org = orgs[0];",
+                  "pm.environment.set('orgId', org.orgId || org.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{iamBase}}/me" }
+        },
+        {
+          "name": "Org detail → defaultGroupId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.defaultGroupId) pm.environment.set('defaultGroupId', j.defaultGroupId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{iamBase}}/organizations/{{orgId}}" }
+        },
+        {
+          "name": "BFF workspaces → workspaceId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items || [];",
+                  "pm.test('default workspace', () => pm.expect(items.length).to.be.above(0));",
+                  "pm.environment.set('workspaceId', items[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{bffBase}}/api/config/orgs/{{orgId}}/workspaces" }
+        },
+        {
+          "name": "BFF Me (session context)",
+          "request": { "method": "GET", "url": "{{bffBase}}/api/me" }
+        }
+      ]
+    },
+    {
+      "name": "01 Health & metrics",
+      "item": [
+        { "name": "IAM health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{iamBase}}/health" } },
+        { "name": "BFF health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{bffBase}}/health" } },
+        { "name": "MCP health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{mcpBase}}/health" } },
+        { "name": "AI health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{aiBase}}/health" } },
+        { "name": "Config health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{configBase}}/health" } },
+        { "name": "Policy health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{policyBase}}/health" } },
+        { "name": "Audit health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{auditBase}}/health" } },
+        { "name": "Secrets health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{secretsBase}}/health" } },
+        { "name": "Knowledge health", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{knowledgeBase}}/health" } },
+        { "name": "IAM metrics (Prometheus)", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{iamBase}}/metrics" } },
+        { "name": "BFF metrics", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{bffBase}}/metrics" } }
+      ]
+    },
+    {
+      "name": "02 IAM (8080)",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Logout",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+                "url": "{{iamBase}}/auth/logout"
+              }
+            },
+            {
+              "name": "Switch org",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"orgId\": \"{{orgId}}\"\n}" },
+                "url": "{{iamBase}}/auth/switch-org"
+              }
+            },
+            {
+              "name": "Forgot password",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{debugEmail}}\"\n}" },
+                "url": "{{iamBase}}/auth/forgot-password"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me & sessions",
+          "item": [
+            { "name": "GET /me", "request": { "method": "GET", "url": "{{iamBase}}/me" } },
+            {
+              "name": "PATCH /me",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"displayName\": \"Postman Updated\"\n}" },
+                "url": "{{iamBase}}/me"
+              }
+            },
+            { "name": "List sessions", "request": { "method": "GET", "url": "{{iamBase}}/me/sessions" } }
+          ]
+        },
+        {
+          "name": "Organizations",
+          "item": [
+            {
+              "name": "Create org",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Second Org\",\n  \"slug\": \"second-org-{{$timestamp}}\"\n}" },
+                "url": "{{iamBase}}/organizations"
+              }
+            },
+            { "name": "GET org", "request": { "method": "GET", "url": "{{iamBase}}/organizations/{{orgId}}" } },
+            {
+              "name": "List groups",
+              "request": { "method": "GET", "url": "{{iamBase}}/organizations/{{orgId}}/groups" }
+            },
+            {
+              "name": "List members",
+              "request": { "method": "GET", "url": "{{iamBase}}/organizations/{{orgId}}/members" }
+            },
+            {
+              "name": "List invites",
+              "request": { "method": "GET", "url": "{{iamBase}}/organizations/{{orgId}}/invites" }
+            },
+            {
+              "name": "Create invite",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"invitee-{{$timestamp}}@example.com\",\n  \"roleKeys\": [\"member\"]\n}"
+                },
+                "url": "{{iamBase}}/organizations/{{orgId}}/invites"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Internal",
+          "item": [
+            {
+              "name": "Token introspect",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{accessToken}}\"\n}" },
+                "url": "{{iamBase}}/internal/token/introspect"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 BFF (8082)",
+      "description": "Единая точка для Web UI. JWT из Setup.",
+      "item": [
+        { "name": "GET /api/me", "request": { "method": "GET", "url": "{{bffBase}}/api/me" } },
+        {
+          "name": "POST /api/chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  try {",
+                  "    const j = pm.response.json();",
+                  "    if (j.conversationId) pm.environment.set('conversationId', j.conversationId);",
+                  "  } catch (e) {}",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Workspace-Id", "value": "{{workspaceId}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"ping from postman\"\n}" },
+            "url": "{{bffBase}}/api/chat"
+          }
+        },
+        { "name": "MCP catalog", "request": { "method": "GET", "url": "{{bffBase}}/api/mcp/catalog" } },
+        {
+          "name": "MCP list installations",
+          "request": { "method": "GET", "url": "{{bffBase}}/api/mcp/workspaces/{{workspaceId}}/installations" }
+        },
+        {
+          "name": "Config list workspaces",
+          "request": { "method": "GET", "url": "{{bffBase}}/api/config/orgs/{{orgId}}/workspaces" }
+        },
+        {
+          "name": "Policy rules",
+          "request": { "method": "GET", "url": "{{bffBase}}/api/policy/orgs/{{orgId}}/rules" }
+        },
+        {
+          "name": "Policy pending approvals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{bffBase}}/api/policy/orgs/{{orgId}}/pending-approvals?workspace_id={{workspaceId}}",
+              "host": ["{{bffBase}}"],
+              "path": ["api", "policy", "orgs", "{{orgId}}", "pending-approvals"],
+              "query": [{ "key": "workspace_id", "value": "{{workspaceId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Audit tool events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{bffBase}}/api/audit/orgs/{{orgId}}/tool-events?workspace_id={{workspaceId}}",
+              "host": ["{{bffBase}}"],
+              "path": ["api", "audit", "orgs", "{{orgId}}", "tool-events"],
+              "query": [{ "key": "workspace_id", "value": "{{workspaceId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Knowledge connectors",
+          "request": { "method": "GET", "url": "{{bffBase}}/api/knowledge/connectors" }
+        },
+        {
+          "name": "Knowledge search",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"{{orgId}}\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"query\": \"test\"\n}"
+            },
+            "url": "{{bffBase}}/api/knowledge/search"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 MCP (8081)",
+      "description": "Прямые вызовы gateway. Нужны X-Org-Id и X-User-Id (как в E2E).",
+      "item": [
+        { "name": "Catalog (public)", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{mcpBase}}/catalog" } },
+        { "name": "Catalog notion", "request": { "method": "GET", "url": "{{mcpBase}}/catalog/notion" } },
+        {
+          "name": "List installations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Org-Id", "value": "{{orgId}}" },
+              { "key": "X-User-Id", "value": "{{userId}}" }
+            ],
+            "url": "{{mcpBase}}/workspaces/{{workspaceId}}/installations"
+          }
+        },
+        {
+          "name": "Install Notion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.environment.set('installationId', pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Org-Id", "value": "{{orgId}}" },
+              { "key": "X-User-Id", "value": "{{userId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"connectorKey\": \"notion\",\n  \"displayLabel\": \"Notion Postman\",\n  \"form\": {\n    \"integration_token\": \"{{notionToken}}\"\n  }\n}"
+            },
+            "url": "{{mcpBase}}/workspaces/{{workspaceId}}/installations"
+          }
+        },
+        {
+          "name": "Installation health check",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Org-Id", "value": "{{orgId}}" },
+              { "key": "X-User-Id", "value": "{{userId}}" }
+            ],
+            "url": "{{mcpBase}}/workspaces/{{workspaceId}}/installations/{{installationId}}/health"
+          }
+        },
+        {
+          "name": "Delete installation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Org-Id", "value": "{{orgId}}" },
+              { "key": "X-User-Id", "value": "{{userId}}" }
+            ],
+            "url": "{{mcpBase}}/workspaces/{{workspaceId}}/installations/{{installationId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 AI Runtime (8083)",
+      "item": [
+        {
+          "name": "POST /chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.conversationId) pm.environment.set('conversationId', j.conversationId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"message\": \"Hello from Postman\"\n}"
+            },
+            "url": "{{aiBase}}/chat"
+          }
+        },
+        {
+          "name": "List conversations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{aiBase}}/conversations?workspace_id={{workspaceId}}",
+              "host": ["{{aiBase}}"],
+              "path": ["conversations"],
+              "query": [{ "key": "workspace_id", "value": "{{workspaceId}}" }]
+            }
+          }
+        },
+        {
+          "name": "List messages",
+          "request": { "method": "GET", "url": "{{aiBase}}/conversations/{{conversationId}}/messages" }
+        }
+      ]
+    },
+    {
+      "name": "06 Config (8084)",
+      "item": [
+        {
+          "name": "List workspaces",
+          "request": { "method": "GET", "url": "{{configBase}}/orgs/{{orgId}}/workspaces" }
+        },
+        {
+          "name": "Create workspace",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Extra WS\",\n  \"slug\": \"extra-{{$timestamp}}\",\n  \"groupId\": \"{{defaultGroupId}}\"\n}"
+            },
+            "url": "{{configBase}}/orgs/{{orgId}}/workspaces"
+          }
+        },
+        { "name": "GET workspace", "request": { "method": "GET", "url": "{{configBase}}/workspaces/{{workspaceId}}" } },
+        {
+          "name": "PATCH workspace",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Renamed WS\"\n}" },
+            "url": "{{configBase}}/workspaces/{{workspaceId}}"
+          }
+        },
+        {
+          "name": "Internal bootstrap default workspace",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Config-Internal-Key", "value": "{{configInternalKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"defaultGroupId\": \"{{defaultGroupId}}\",\n  \"orgName\": \"Debug Org\"\n}"
+            },
+            "url": "{{configBase}}/internal/orgs/{{orgId}}/bootstrap-default-workspace"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Policy (8085)",
+      "item": [
+        { "name": "List rules", "request": { "method": "GET", "url": "{{policyBase}}/orgs/{{orgId}}/rules" } },
+        {
+          "name": "Pending approvals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{policyBase}}/orgs/{{orgId}}/pending-approvals?workspace_id={{workspaceId}}",
+              "host": ["{{policyBase}}"],
+              "path": ["orgs", "{{orgId}}", "pending-approvals"],
+              "query": [{ "key": "workspace_id", "value": "{{workspaceId}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Audit (8086)",
+      "item": [
+        {
+          "name": "List tool events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{auditBase}}/orgs/{{orgId}}/tool-events?workspace_id={{workspaceId}}",
+              "host": ["{{auditBase}}"],
+              "path": ["orgs", "{{orgId}}", "tool-events"],
+              "query": [{ "key": "workspace_id", "value": "{{workspaceId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Internal ingest event",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Audit-Internal-Key", "value": "{{auditInternalKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"{{orgId}}\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"eventType\": \"debug.postman\",\n  \"toolName\": \"postman\",\n  \"outcome\": \"success\",\n  \"actorUserId\": \"{{userId}}\",\n  \"metadata\": { \"source\": \"postman\" }\n}"
+            },
+            "url": "{{auditBase}}/internal/tool-events"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Secrets internal (8087)",
+      "item": [
+        {
+          "name": "Store credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const ref = pm.response.json().secretRef;",
+                  "  if (ref) pm.environment.set('secretRef', ref);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Secrets-Internal-Key", "value": "{{secretsInternalKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"{{orgId}}\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"connectorKey\": \"notion\",\n  \"payload\": {\n    \"integration_token\": \"{{notionToken}}\"\n  }\n}"
+            },
+            "url": "{{secretsBase}}/internal/credentials"
+          }
+        },
+        {
+          "name": "Get credentials",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [{ "key": "X-Secrets-Internal-Key", "value": "{{secretsInternalKey}}" }],
+            "url": "{{secretsBase}}/internal/credentials/{{secretRef}}"
+          }
+        },
+        {
+          "name": "Revoke credentials",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "DELETE",
+            "header": [{ "key": "X-Secrets-Internal-Key", "value": "{{secretsInternalKey}}" }],
+            "url": "{{secretsBase}}/internal/credentials/{{secretRef}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Knowledge (8088)",
+      "item": [
+        { "name": "Connectors", "request": { "method": "GET", "url": "{{knowledgeBase}}/connectors" } },
+        {
+          "name": "List sources",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{knowledgeBase}}/workspaces/{{workspaceId}}/sources?org_id={{orgId}}",
+              "host": ["{{knowledgeBase}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sources"],
+              "query": [{ "key": "org_id", "value": "{{orgId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create source",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{knowledgeBase}}/workspaces/{{workspaceId}}/sources?org_id={{orgId}}",
+              "host": ["{{knowledgeBase}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sources"],
+              "query": [{ "key": "org_id", "value": "{{orgId}}" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"connectorKey\": \"notion\",\n  \"displayName\": \"Notion KB\",\n  \"mcpInstallationId\": \"{{installationId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Search",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"{{orgId}}\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"query\": \"hello\"\n}"
+            },
+            "url": "{{knowledgeBase}}/search"
+          }
+        }
+      ]
+    }
+  ]
+}

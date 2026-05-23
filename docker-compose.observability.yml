@@ -1,0 +1,8 @@
+# Локальный запуск observability (один Prometheus + Grafana).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#   # или:
+#   cd deploy/observability && ./up-local.ps1
+
+include:
+  - path: deploy/observability/docker-compose.local.yml

@@ -12,8 +12,8 @@ $ErrorActionPreference = "Stop"
 $PlatformRoot = Split-Path -Parent $PSScriptRoot
 $WorkspaceRoot = Split-Path -Parent $PlatformRoot
 
-Write-Host "=== Unit tests + JaCoCo (Docker) ===" -ForegroundColor Cyan
-& "$PlatformRoot\scripts\verify-service-coverage.ps1"
+Write-Host "=== Unit tests + JaCoCo (Docker, parallel) ===" -ForegroundColor Cyan
+& "$PlatformRoot\scripts\verify-service-coverage.ps1" -Parallel 4
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Unit/coverage gate failed. Push aborted."
 }
@@ -87,7 +87,7 @@ foreach ($repo in $repoPaths) {
     Write-Host "Pushing $name ..."
     git -C $repo add -A
     git -C $repo commit -m $CommitMessage
-    git -C $repo push origin main
+    git -C $repo push origin HEAD
 }
 
 Write-Host "`nDone: all gates green, pushes completed." -ForegroundColor Green

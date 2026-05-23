@@ -35,6 +35,8 @@ docker compose up --build
 
 Workflow: [`.github/workflows/deploy-vps.yml`](../.github/workflows/deploy-vps.yml)
 
+**Мониторинг (Grafana):** один стек на VPS — [`deploy/observability/README.md`](../deploy/observability/README.md), workflow **Deploy observability** (data source **Prometheus-Test** / **Prometheus-Prod**).
+
 - **Merge в `test`** (любой BC или `platform`) → деплой VPS **test**.
 - **Merge в `main`** → деплой VPS **prod**.
 - Ручной запуск: **Actions → Deploy to VPS**.

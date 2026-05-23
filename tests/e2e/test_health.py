@@ -1,7 +1,8 @@
 import pytest
 import requests
 
-from lib.config import SERVICES_HEALTH
+from lib.config import SERVICES_HEALTH, SERVICES_METRICS
+from lib.metrics_assert import assert_prometheus_golden_signals
 
 pytestmark = [pytest.mark.phase1, pytest.mark.smoke]
 
@@ -12,3 +13,11 @@ def test_service_health(name: str, url: str, require_compose):
     assert r.status_code == 200, f"{name} unhealthy: {r.text}"
     body = r.json()
     assert body.get("status") == "UP" or "UP" in str(body)
+
+
+@pytest.mark.parametrize("name,url", list(SERVICES_METRICS.items()))
+def test_service_metrics_golden_signals(name: str, url: str, require_compose):
+    """Prometheus /metrics: traffic, latency, errors, saturation (4 golden signals)."""
+    r = requests.get(url, timeout=15)
+    assert r.status_code == 200, f"{name} metrics: {r.text[:300]}"
+    assert_prometheus_golden_signals(r.text, name)
