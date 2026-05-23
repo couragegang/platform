@@ -249,10 +249,10 @@ cd platform
 |----------|-----------|
 | Merge в **`test`** (любой BC или platform) | VPS **test**, тег `<sha>-test` |
 | Merge в **`main`** | VPS **prod**, тег `<sha>-prod` |
-| Push в BC | `repository_dispatch` → platform **Deploy to VPS** (один сервис) |
+| Push в BC | `workflow_call` → reusable **Deploy to VPS** в platform (один сервис) |
 | Push в platform (paths `deploy/`, `config/`) | полный деплой всех сервисов |
 
-Секрет BC: **`PLATFORM_DEPLOY_TOKEN`** → PAT с правом dispatch в `couragegang/platform`.
+В **`couragegang/platform`**: Settings → Actions → Access — workflows доступны репозиториям org (см. [`service-git-workflow.md`](service-git-workflow.md)).
 
 ---
 

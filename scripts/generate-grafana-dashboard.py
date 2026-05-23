@@ -390,7 +390,13 @@ def build_dashboard(svc: dict[str, Any]) -> dict[str, Any]:
                     "label": "Contour (Prometheus)",
                     "type": "datasource",
                     "query": "prometheus",
-                    "current": {"text": "Prometheus-Prod", "value": "prometheus-prod"},
+                    "hide": 0,
+                    "includeAll": False,
+                    "current": {
+                        "selected": True,
+                        "text": "Prometheus-Prod",
+                        "value": "prometheus-prod",
+                    },
                     "regex": "/Prometheus-(Test|Prod)/",
                 },
                 {

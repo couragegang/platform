@@ -8,7 +8,7 @@
 | **prometheus-prod** | Scrape `8080–8088` (VPS prod / local) |
 | **grafana** | UI; data sources **Prometheus-Test** и **Prometheus-Prod** |
 
-Метрики приложений: `GET /v1/<bc>/metrics` (Micronaut). Стандарт: [`docs/metrics-golden-signals.md`](../../docs/metrics-golden-signals.md).
+Метрики приложений: `GET /v1/<bc>/prometheus` (не `/metrics`). Стандарт: [`docs/metrics-golden-signals.md`](../../docs/metrics-golden-signals.md).
 
 ## Local
 
@@ -27,9 +27,9 @@ copy .env.example .env   # GRAFANA_ADMIN_PASSWORD
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 (один инстанс, scrape 8080–8088) |
 
-Data source в Grafana: **Prometheus-Prod** (uid совместим с дашбордами BC).
+Data source один — **Prometheus** (без выбора контура в дашбордах).
 
-На VPS по-прежнему **два** Prometheus (test 1808x / prod 808x) — `OBSERVABILITY_PROFILE=vps ./up.sh`.
+На VPS — **два** data source и переменная **Contour (Prometheus)** в дашбордах: `OBSERVABILITY_PROFILE=vps ./up.sh`.
 
 ## VPS
 
@@ -75,7 +75,10 @@ cd platform
 
 Генератор стандартного дашборда: `scripts/generate-grafana-dashboard.py` (IAM — детальный, без `--force` не перезаписывается).
 
-В дашбордах переменная **Contour (Prometheus)** переключает **Prometheus-Test** / **Prometheus-Prod**.
+| Контур | Grafana | Выбор data source |
+|--------|---------|-------------------|
+| **Local** | `dashboards-local/` + один DS `Prometheus` | нет (скрыто) |
+| **VPS** | `dashboards/` + DS Test/Prod | **Contour (Prometheus)** вверху дашборда |
 
 ## GitHub Secrets (Environment `test` или общий VPS)
 

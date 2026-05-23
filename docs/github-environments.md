@@ -80,13 +80,11 @@
 | `build-images.yml` | `test` или `prod` (dispatch) | нет |
 | `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да |
 | `deploy-observability.yml` | `test` (SSH на тот же VPS) | `/opt/couragegang-observability` |
-| `trigger-deploy.yml` (в каждом BC) | — | шлёт dispatch в platform |
+| `trigger-deploy.yml` (в каждом BC) | — | `workflow_call` → reusable `deploy-vps.yml` в platform |
 
-### Секрет в микросервисах (не в platform)
+### Доступ BC → platform (не секрет)
 
-| Secret | Где | Зачем |
-|--------|-----|--------|
-| `PLATFORM_DEPLOY_TOKEN` | каждый `*-service`, `*-gateway`, `ai-runtime` | PAT → `repository_dispatch` в `couragegang/platform` |
+В **`couragegang/platform`**: **Settings → Actions → General → Access** — разрешить вызов workflows из репозиториев org. Секрет **`PLATFORM_DEPLOY_TOKEN`** в BC **не используется** (устаревший путь через `repository_dispatch`).
 
 Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
 

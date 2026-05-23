@@ -51,13 +51,31 @@ on:
       - ".github/workflows/deploy-vps.yml"
   repository_dispatch:
     types: [deploy-vps]
+  workflow_call:
+    inputs:
+      contour:
+        description: Deploy contour (test or prod)
+        required: true
+        type: string
+      service_repo:
+        description: GitHub repo name (e.g. iam-service)
+        required: true
+        type: string
+      sha:
+        description: Git commit SHA for image tag
+        required: true
+        type: string
+      trigger_repository:
+        description: owner/repo that triggered deploy (logging)
+        required: false
+        type: string
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: deploy-vps-${{ github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}-${{ github.event.client_payload.scope || github.event.inputs.deploy_scope || (github.event_name == 'repository_dispatch' && 'single') || 'all' }}-${{ github.event.client_payload.repository || github.event.inputs.service_repo || 'platform' }}
+  group: deploy-vps-${{ inputs.contour || github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}-${{ github.event_name == 'workflow_call' && 'single' || github.event.client_payload.scope || github.event.inputs.deploy_scope || (github.event_name == 'repository_dispatch' && 'single') || 'all' }}-${{ inputs.service_repo || github.event.client_payload.repository || github.event.inputs.service_repo || 'platform' }}
   cancel-in-progress: true
 
 jobs:
@@ -85,7 +103,12 @@ jobs:
           repo=""
           scope="all"
 
-          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_call" ]]; then
+            contour="${{ inputs.contour }}"
+            tag="${{ inputs.sha }}-${contour}"
+            repo="${{ inputs.service_repo }}"
+            scope="single"
+          elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
             contour="${{ github.event.client_payload.contour }}"
             tag="${{ github.event.client_payload.sha }}-${contour}"
             repo="${{ github.event.client_payload.repository }}"
@@ -138,7 +161,7 @@ jobs:
             echo "bake_service=${bake_service}"
             echo "ghcr_image=${ghcr_image}"
             echo "vps_compose_service=${vps_compose_service}"
-            echo "trigger_repo=${{ github.event.client_payload.repository || '' }}"
+            echo "trigger_repo=${{ inputs.trigger_repository || github.event.client_payload.repository || '' }}"
           } >> "$GITHUB_OUTPUT"
 
           echo "Deploy contour=$contour scope=$scope tag=$tag repo=${repo:-all} vps=${vps_compose_service:-*}"

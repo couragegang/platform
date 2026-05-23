@@ -12,7 +12,7 @@
 
 1. Ветвление от **`test`**: `git checkout test && git pull && git checkout -b feature/ABC-123`.
 2. Коммиты в feature-ветку, PR/MR **в `test`**.
-3. После merge в **`test`** → GitHub Actions в сервисе → **`repository_dispatch`** → workflow **`platform` Deploy to VPS** → контур **test**.
+3. После merge в **`test`** → GitHub Actions в сервисе → **`workflow_call`** → reusable **`platform` Deploy to VPS** → контур **test**.
 4. Релиз: MR **`test` → `main`** (после проверки на staging).
 5. После merge в **`main`** → тот же механизм → контур **prod**.
 
@@ -34,18 +34,15 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 | **`single`** (по умолчанию) | Merge в `test`/`main` в **микросервисе** | Сборка/push **только этого** сервиса; на VPS перезапуск **одного** контейнера. Остальные теги — из `image-tags.env`. |
 | **`all`** | Push/merge в **`platform`** (deploy paths) или **Actions → Deploy to VPS** с `deploy_scope=all` | Полный bake всех 9 BC + postgres, общий тег, полный `up.sh`. |
 
-В payload dispatch из BC передаётся `scope: 'single'` и `repository: couragegang/<service>`.
+Из BC вызывается reusable workflow с `scope=single` (один сервис, один контейнер на VPS).
 
 ## Одноразовая настройка GitHub
 
-### 1. PAT для dispatch
+### 1. Доступ к reusable workflow в `platform`
 
-Создайте fine-grained или classic PAT с доступом к репозиторию **`couragegang/platform`**:
+В репозитории **`couragegang/platform`**: **Settings → Actions → General → Access** → включить доступ для репозиториев организации **`couragegang`** (или явно перечислить BC).
 
-- **Actions:** Read and write (для `repository_dispatch`)
-- **Contents:** Read (опционально)
-
-Сохраните как секрет **`PLATFORM_DEPLOY_TOKEN`** в **каждом** микросервисе (и при желании на уровне org).
+Секрет **`PLATFORM_DEPLOY_TOKEN`** в микросервисах **не нужен** (legacy: `repository_dispatch` + `actions/github-script`).
 
 ### 2. Workflow в сервисах
 

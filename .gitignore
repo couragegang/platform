@@ -14,3 +14,4 @@ templates/**/__pycache__/
 deploy/observability/grafana/dashboards/*-service/
 deploy/observability/grafana/dashboards/*-gateway/
 deploy/observability/grafana/dashboards/ai-runtime/
+deploy/observability/grafana/dashboards-local/

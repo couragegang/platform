@@ -74,7 +74,7 @@ Merge в микросервис → **single** (один образ). Push в **
 | Push в **`platform`** (`test` / `main`, paths deploy/config) | test / prod |
 | **Actions → Deploy to VPS** (ручной) | выбор |
 
-Микросервисы: [`.github/workflows/trigger-deploy.yml`](../../templates/service-trigger-deploy.yml) + секрет **`PLATFORM_DEPLOY_TOKEN`**.
+Микросервисы: [`.github/workflows/trigger-deploy.yml`](../../templates/service-trigger-deploy.yml) → reusable `deploy-vps` в platform (секрет PAT не нужен).
 
 Git-flow: [`docs/service-git-workflow.md`](../../docs/service-git-workflow.md).
 

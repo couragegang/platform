@@ -8,7 +8,7 @@ datasources:
     uid: prometheus-test
     access: proxy
     url: http://prometheus-test:9090
-    isDefault: true
+    isDefault: false
     editable: false
     jsonData:
       httpMethod: POST
@@ -19,7 +19,7 @@ datasources:
     uid: prometheus-prod
     access: proxy
     url: http://prometheus-prod:9090
-    isDefault: false
+    isDefault: true
     editable: false
     jsonData:
       httpMethod: POST

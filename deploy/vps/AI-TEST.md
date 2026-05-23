@@ -152,7 +152,7 @@ Bake подставит их из `VPS_PUBLIC_BASE_URL` при сборке об
 - **Merge / push в ветку `test`** любого микросервиса → `trigger-deploy.yml` → platform **Deploy to VPS** → contour **test**
 - Или: **Actions → Deploy to VPS → contour: test**
 
-В каждом BC: secret **`PLATFORM_DEPLOY_TOKEN`**, ветки **`test`** и **`main`**.
+В **`platform`**: Actions → Access для org. Ветки BC: **`test`** и **`main`**.
 
 ---
 

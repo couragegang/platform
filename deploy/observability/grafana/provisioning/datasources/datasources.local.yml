@@ -1,11 +1,11 @@
-# Local: один Prometheus. UID prometheus-prod — совместимость с дашбордами BC.
+# Local: один Prometheus, без выбора контура в дашбордах (переменная datasource скрыта).
 
 apiVersion: 1
 
 datasources:
-  - name: Prometheus-Prod
+  - name: Prometheus
     type: prometheus
-    uid: prometheus-prod
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
