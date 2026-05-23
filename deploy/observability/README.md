@@ -56,6 +56,17 @@ chmod +x up.sh
 
 Откройте Grafana: `http://<VPS>:3000` (закройте firewall / reverse-proxy + TLS в проде).
 
+**Subpath за nginx** (`https://ai-test.valoriel.ru/grafana/`):
+
+```bash
+GRAFANA_ROOT_URL=https://ai-test.valoriel.ru/grafana/
+GRAFANA_SERVE_FROM_SUB_PATH=true
+```
+
+Один инстанс Grafana = **один** `GRAFANA_ROOT_URL` (canonical URL). Для prod-домена — отдельный инстанс/порт или тот же URL через ai-test.
+
+После смены `.env`: `docker compose --env-file .env up -d --force-recreate grafana`.
+
 ## Дашборды
 
 **Источник правды:** `services/<bc>/grafana/*.json` в каждом микросервисе.
