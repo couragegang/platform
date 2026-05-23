@@ -2,7 +2,7 @@
 
 ## 1. Branch protection (`test`, `main`)
 
-В **platform** настроены правила (PR + 1 approval, без force-push, enforce admins). Подробности и команда повторного применения — в [`service-git-workflow.md`](service-git-workflow.md) § «Protected branches».
+В **platform** и BC: PR + 1 approval, bypass для maintainer, auto-approve workflow (если org разрешает Actions approve PR). Подробности — [`service-git-workflow.md`](service-git-workflow.md) § «Protected branches».
 
 ## 2. Создать environments
 

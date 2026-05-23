@@ -62,8 +62,16 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 | Dismiss stale pull request approvals | да |
 | Require conversation resolution | да |
 | Enforce for administrators | да |
+| Require approval from someone other than the last pusher | **нет** (`require_last_push_approval: false`) |
 | Allow force pushes | нет |
 | Allow deletions | нет |
+
+**Самоаппрув:** GitHub **не позволяет** автору PR нажать Approve на своём PR. Для solo/малой команды:
+
+1. Workflow [`.github/workflows/auto-approve-internal-prs.yml`](../.github/workflows/auto-approve-internal-prs.yml) — бот ставит approval на PR из того же репозитория (нужно **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests**).
+2. В [`branch-protection.json`](../.github/branch-protection.json) — `bypass_pull_request_allowances` для maintainer (можно мержить без review, если бот не сработал).
+
+Шаблон для BC: [`templates/auto-approve-internal-prs.yml`](../templates/auto-approve-internal-prs.yml).
 
 Повторно применить для **platform** (нужен `gh` и права admin):
 
