@@ -79,10 +79,10 @@
 | `e2e.yml` | `test` | нет (только CI compose) |
 | `build-images.yml` | `test` или `prod` (dispatch) | нет |
 | `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да (Docker BC) |
-| `deploy-web-ui.yml` | `test` / `prod` (`repository_dispatch` / dispatch) | rsync `apps/web/dist` → `/var/www/ai*.valoriel.ru`; VPS_* только в platform Environment |
-| `ui` → `trigger-deploy.yml` | push + path filter | `repository_dispatch` `deploy-ui` (PAT `PLATFORM_DISPATCH_TOKEN` в ui; VPS не дублировать) |
+| `deploy-web-ui.yml` | `test` / `prod` (`workflow_call` из **ui**, dispatch, `repository_dispatch`) | rsync `apps/web/dist`; VPS_* в platform |
+| `ui` → `trigger-deploy.yml` | push + path filter | `workflow_call` → `deploy-web-ui.yml` (как BC → `deploy-vps`) |
 
-**Примечание:** `workflow_call` из BC/ui в другой репозиторий **не** подставляет Environment secrets platform (ограничение GitHub). Для SPA — `repository_dispatch`; для Docker BC — см. `deploy-vps.yml` (тот же паттерн при необходимости).
+**Кросс-репо `workflow_call`:** Environment secrets platform **не** доступны вызывающему репо. Нужны те же `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` в **Repository secrets** [`couragegang/platform` Settings → Secrets → Actions](https://github.com/couragegang/platform/settings/secrets/actions) (значения как в Environment `test`/`prod`). Альтернатива без дублирования в platform: `repository_dispatch` + PAT в ui (`PLATFORM_DISPATCH_TOKEN`).
 | `deploy-observability.yml` | `test` (SSH на тот же VPS) | `/opt/couragegang-observability` |
 | `trigger-deploy.yml` (в каждом BC) | — | `workflow_call` → reusable `deploy-vps.yml` в platform |
 
