@@ -155,6 +155,7 @@ services:
       SECRETS_SERVICE_URL: http://secrets:8087/v1/secrets
       AUDIT_SERVICE_ENABLED: "true"
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
+      MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,14 +194,29 @@ services:
     ports:
       - "8083:8083"
     environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ai
+      DB_USER: platform
+      DB_PASSWORD: ${DB_PASSWORD:-platform}
       POLICY_SERVICE_ENABLED: "true"
       POLICY_SERVICE_URL: http://policy:8085/v1/policy
       AUDIT_SERVICE_ENABLED: "true"
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
+      MCP_SERVICE_ENABLED: "true"
+      MCP_SERVICE_URL: http://mcp:8081/v1/mcp
+      MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
     depends_on:
-      - iam
-      - policy
-      - audit
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      mcp:
+        condition: service_started
+      policy:
+        condition: service_started
+      audit:
+        condition: service_started
 
   bff:
     build:
