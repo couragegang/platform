@@ -90,8 +90,7 @@ jobs:
     needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Без environment: при workflow_call из ui/BC иначе VPS_* пустые (только Environment secrets).
-    # VPS_* берём из Repository secrets platform (sync-vps-repo-secrets.yml).
+    environment: ${{ needs.resolve.outputs.contour }}
     env:
       REMOTE_DIR: ${{ needs.resolve.outputs.remote_dir }}
       WEB_UI_SHA: ${{ needs.resolve.outputs.sha }}
