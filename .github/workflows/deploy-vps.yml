@@ -322,8 +322,12 @@ jobs:
               ls -la "$VPS_DEPLOY_DIR" || true
               exit 1
             fi
-            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
+            sed -i 's/\r$//' up.sh ensure-databases.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
             chmod +x up.sh
+            if [[ -f ensure-databases.sh ]]; then
+              chmod +x ensure-databases.sh
+              bash ./ensure-databases.sh
+            fi
             unset COMPOSE_FILE
             # Org-scoped token from this workflow (not a personal PAT on VPS).
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin

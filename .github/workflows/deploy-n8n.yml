@@ -196,8 +196,12 @@ jobs:
               echo "deploy files missing in $VPS_DEPLOY_DIR" >&2
               exit 1
             fi
-            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
+            sed -i 's/\r$//' up.sh ensure-databases.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
             chmod +x up.sh
+            if [[ -f ensure-databases.sh ]]; then
+              chmod +x ensure-databases.sh
+              bash ./ensure-databases.sh
+            fi
             unset COMPOSE_FILE
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
             export IMAGE_TAG IMAGE_OWNER DEPLOY_CONTOUR
