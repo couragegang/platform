@@ -61,6 +61,9 @@ Nginx: [`nginx-ai-test.valoriel.ru.server.conf`](nginx-ai-test.valoriel.ru.serve
 sudo cp nginx-ai-test.valoriel.ru.server.conf /etc/nginx/sites-available/ai-test.valoriel.ru
 sudo ln -sf /etc/nginx/sites-available/ai-test.valoriel.ru /etc/nginx/sites-enabled/
 sudo mkdir -p /var/www/ai-test.valoriel.ru
+# USER = тот же login, что VPS_USER в GitHub Environment test (CI rsync)
+sudo chown -R "$USER:www-data" /var/www/ai-test.valoriel.ru
+sudo chmod -R u+rwX,g+rX /var/www/ai-test.valoriel.ru
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -192,6 +195,7 @@ test  →  PR в main  →  деплой ai.valoriel.ru (prod)
 |---------|---------|
 | 502 на `/api/*` | Docker test не поднят или не `18082` |
 | 502 на `/` | Пустой `/var/www/ai-test.valoriel.ru` — задеплойте `dist/` |
+| rsync **Permission denied** | `chown` static-каталога на **`VPS_USER`** (см. §2): `sudo chown -R VPS_USER:www-data /var/www/ai-test.valoriel.ru` |
 | SSL error | Путь к `ai-test.valoriel.ru_le1.crtca` в nginx |
 | OIDC redirect на prod URL | Пересобрать образы test с `VPS_PUBLIC_BASE_URL=https://ai-test.valoriel.ru` |
 | Prod и test мешают порты | Test без `docker-compose.ports-test.yml` — проверьте `DEPLOY_CONTOUR=test` в `up.sh` |

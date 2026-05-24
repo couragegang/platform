@@ -127,7 +127,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           PORT="${VPS_SSH_PORT:-22}"
-          rsync -avz --delete \
+          rsync -avz --delete --no-times --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -p ${PORT} -o StrictHostKeyChecking=no" \
             dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/"
           echo "Deployed web-ui ${WEB_UI_SHA} → ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}"

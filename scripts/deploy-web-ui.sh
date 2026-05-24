@@ -32,6 +32,6 @@ cd "$WEB_UI_ROOT"
 npm ci
 npm run build
 
-rsync -avz --delete "$WEB_UI_ROOT/dist/" "${SSH_TARGET}:${REMOTE_DIR}/"
+rsync -avz --delete --no-times --omit-dir-times "$WEB_UI_ROOT/dist/" "${SSH_TARGET}:${REMOTE_DIR}/"
 
 echo "Deployed web-ui → ${SSH_TARGET}:${REMOTE_DIR} (contour=$CONTOUR)"
