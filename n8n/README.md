@@ -8,7 +8,7 @@ Self-hosted оркестратор чата (образ **≥ 1.121.0**).
 
 Образ `ghcr.io/<owner>/n8n:<sha>-test|prod` ([`docker/n8n/Dockerfile`](../docker/n8n/Dockerfile)). Полный **Deploy to VPS** n8n **не** собирает (только BC-стек).
 
-Workflow из `n8n/workflows/*.json` импортируются при **первом** старте volume (`n8n import:workflow`). После деплоя проверьте в UI, что оба workflow **Active**.
+Workflow из `n8n/workflows/*.json` импортируются при **первом** старте volume (`n8n import:workflow`). Entrypoint затем вызывает `n8n update:workflow --all --active=true` (import по умолчанию деактивирует workflow — без этого production webhook не регистрируется). После деплоя в UI должны быть **Active** оба workflow.
 
 Порты: test **15678**, prod **5678** (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 

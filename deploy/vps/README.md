@@ -18,6 +18,7 @@
 - `ai-runtime` на VPS: `AI_ORCHESTRATOR=n8n` (фрагмент `config/bake/fragments/ai.env`) — пересборка через **Deploy to VPS** → `ai-runtime` или флаг **redeploy_ai** в deploy-n8n.
 - Секрет **`AI_INTERNAL_API_KEY`** — в GitHub Environment **test** / **prod** (как остальные internal keys).
 - UI n8n через nginx: **`https://ai-test.valoriel.ru/n8n/`** (test), **`https://ai.valoriel.ru/n8n/`** (prod). Subpath: bake по контуру + `docker-compose.ports-*.yml` (не `VPS_PUBLIC_BASE_URL`).
+- **Нет executions в n8n:** `import:workflow` деактивирует workflow — entrypoint делает `n8n update:workflow --all --active=true` перед стартом. На уже развёрнутом volume без пересборки образа: `docker compose exec n8n n8n update:workflow --all --active=true` и `docker compose restart n8n`. У `ai`: `grep AI_ORCHESTRATOR /app/config/runtime-baked.env` → `n8n` и `AI_N8N_ENABLED=true`; в логах при старте: `useN8n=true`.
 
 ## Однократная настройка VPS
 
