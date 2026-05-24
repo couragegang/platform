@@ -46,24 +46,4 @@ EOSQL
   echo "Purged managed workflows from DB"
 }
 
-purge_extra_by_name() {
-  keep_id="$1"
-  name="$2"
-  [ -f "$DB" ] || return 0
-  command -v sqlite3 >/dev/null 2>&1 || return 0
-
-  sqlite3 "$DB" "SELECT id FROM workflow_entity WHERE name='$name' AND id != '$keep_id';" 2>/dev/null \
-    | while IFS= read -r extra_id; do
-      [ -z "$extra_id" ] && continue
-      echo "Removing duplicate $name id=$extra_id (sqlite)"
-      sqlite3 "$DB" <<EOSQL 2>/dev/null || true
-DELETE FROM webhook_entity WHERE workflowId = '$extra_id';
-DELETE FROM shared_workflow WHERE workflowId = '$extra_id';
-DELETE FROM workflows_tags WHERE workflowId = '$extra_id';
-DELETE FROM workflow_history WHERE workflowId = '$extra_id';
-DELETE FROM workflow_entity WHERE id = '$extra_id';
-EOSQL
-    done
-}
-
 purge_managed_in_sqlite
