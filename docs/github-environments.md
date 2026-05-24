@@ -79,18 +79,16 @@
 | `e2e.yml` | `test` | нет (только CI compose) |
 | `build-images.yml` | `test` или `prod` (dispatch) | нет |
 | `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да (Docker BC) |
-| `deploy-web-ui.yml` | `test` / `prod` (`workflow_call` из **ui**, dispatch, `repository_dispatch`) | rsync `apps/web/dist`; VPS_* в platform |
-| `ui` → `trigger-deploy.yml` | push + path filter | `workflow_call` → `deploy-web-ui.yml` (как BC → `deploy-vps`) |
-
-**Кросс-репо `workflow_call`:** Environment secrets platform **не** доступны вызывающему репо. Нужны те же `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` в **Repository secrets** [`couragegang/platform` Settings → Secrets → Actions](https://github.com/couragegang/platform/settings/secrets/actions) (значения как в Environment `test`/`prod`). Альтернатива без дублирования в platform: `repository_dispatch` + PAT в ui (`PLATFORM_DISPATCH_TOKEN`).
+| `deploy-web-ui.yml` | `test` / `prod` (`workflow_dispatch` из **ui**, dispatch) | rsync `apps/web/dist`; VPS_* в platform Environment |
+| `ui` → `trigger-deploy.yml` | push + path filter | `workflow_dispatch` → `deploy-web-ui.yml` @ `test`/`main` |
 | `deploy-observability.yml` | `test` (SSH на тот же VPS) | `/opt/couragegang-observability` |
-| `trigger-deploy.yml` (в каждом BC) | — | `workflow_call` → reusable `deploy-vps.yml` в platform |
+| `trigger-deploy.yml` (в каждом BC) | push `test`/`main` | `workflow_dispatch` → `deploy-vps.yml` @ `test`/`main` |
 
-### Доступ BC → platform (не секрет)
+**Кросс-репо деплой:** Environment secrets platform **не** передаются через `workflow_call`. В каждом BC и в **ui** — Repository secret **`PLATFORM_DISPATCH_TOKEN`** (PAT с правом запускать Actions в `couragegang/platform`). Скрипт: [`scripts/set-platform-dispatch-token.ps1`](../scripts/set-platform-dispatch-token.ps1). VPS_* остаются только в Environment platform.
 
-В **`couragegang/platform`**: **Settings → Actions → General → Access** — разрешить вызов workflows из репозиториев org. Секрет **`PLATFORM_DEPLOY_TOKEN`** в BC **не используется** (устаревший путь через `repository_dispatch`).
+### Доступ BC → platform
 
-При `workflow_call` reusable workflow должен явно checkout **`platform`** (не репозиторий BC): иначе `scripts/deploy-catalog.sh` и прочие скрипты не найдены. В `deploy-vps.yml` используется `repository: ${{ github.repository_owner }}/platform` и ref из `github.workflow_ref` (`@test` / `@main`). Если checkout platform падает с **403**, в org включите для `GITHUB_TOKEN` доступ к репозиториям организации (**Settings → Actions → General**).
+В **`deploy-vps.yml`** / **`deploy-web-ui.yml`** checkout **`platform`** по `ref: test` или `main` из dispatch. Устаревшие пути: `workflow_call`, `PLATFORM_DEPLOY_TOKEN`, `repository_dispatch`.
 
 Подробнее о ветках и триггерах: [`service-git-workflow.md`](service-git-workflow.md).
 

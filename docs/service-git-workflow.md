@@ -22,7 +22,7 @@
 
 1. Ветвление от **`test`**: `git checkout test && git pull && git checkout -b feature/ABC-123`.
 2. Коммиты в feature-ветку, PR/MR **в `test`**.
-3. После merge в **`test`** → GitHub Actions в сервисе → **`workflow_call`** → reusable **`platform` Deploy to VPS** → контур **test**.
+3. После merge в **`test`** → GitHub Actions в сервисе → **`workflow_dispatch`** на **`platform` Deploy to VPS** (`ref: test`) → контур **test**.
 4. Релиз: MR **`test` → `main`** (после проверки на staging).
 5. После merge в **`main`** → тот же механизм → контур **prod**.
 
@@ -46,7 +46,7 @@ merge → test/main (platform, paths deploy/config)  ──►  deploy-vps (full
 | **`single`** (по умолчанию) | Merge в `test`/`main` в **микросервисе** | Сборка/push **только этого** сервиса; на VPS перезапуск **одного** контейнера. Остальные теги — из `image-tags.env`. |
 | **`all`** | Push/merge в **`platform`** (deploy paths) или **Actions → Deploy to VPS** с `deploy_scope=all` | Полный bake всех 9 BC + postgres, общий тег, полный `up.sh`. |
 
-Из BC вызывается reusable workflow с `scope=single` (один сервис, один контейнер на VPS).
+Из BC вызывается `deploy-vps` с `deploy_scope=single` и `service_repo` = имя репозитория BC (один контейнер на VPS).
 
 ## Одноразовая настройка GitHub
 
@@ -54,29 +54,22 @@ merge → test/main (platform, paths deploy/config)  ──►  deploy-vps (full
 
 В репозитории **`couragegang/platform`**: **Settings → Actions → General → Access** → включить доступ для репозиториев организации **`couragegang`** (или явно перечислить BC).
 
-Секрет **`PLATFORM_DEPLOY_TOKEN`** в микросервисах **не нужен** (legacy: `repository_dispatch` + `actions/github-script`).
+В каждом BC и в **ui**: Repository secret **`PLATFORM_DISPATCH_TOKEN`** (PAT → Actions write на `couragegang/platform`). Скрипт: [`scripts/set-platform-dispatch-token.ps1`](../scripts/set-platform-dispatch-token.ps1). Устаревшие: `PLATFORM_DEPLOY_TOKEN`, `workflow_call` без PAT.
 
 ### 2. Workflow в сервисах
 
 Файл **`.github/workflows/trigger-deploy.yml`** (шаблон: [`templates/service-trigger-deploy.yml`](../templates/service-trigger-deploy.yml)).
 
-### 2.1. Репозиторий `web-ui`
+### 2.1. Репозиторий `ui` (бывший `web-ui`)
 
-Отдельный репозиторий **`couragegang/web-ui`** (не Docker, static SPA):
+**`couragegang/ui`** — pnpm monorepo, static SPA в `apps/web` (не Docker):
 
 | Workflow | Шаблон | Деплой |
 |----------|--------|--------|
-| `trigger-deploy.yml` | [`templates/web-ui-trigger-deploy.yml`](../templates/web-ui-trigger-deploy.yml) | `workflow_call` → **`deploy-web-ui.yml`** (VPS secrets в platform Environment) |
-| `ci.yml` | в репозитории web-ui | lint + `npm run build` на PR |
+| `trigger-deploy.yml` | в репозитории `ui` | `workflow_dispatch` → **`deploy-web-ui.yml`** @ `test`/`main` |
+| `ci-web.yml` | в репозитории `ui` | path filter, build web |
 
-Первичная настройка:
-
-1. Создать **`couragegang/web-ui`** (private/public), ветки **`test`** и **`main`** (protected как у BC).
-2. Push кода + workflows из локальной папки `web-ui/`.
-3. Merge **`deploy-web-ui.yml`** в **`platform`** (`test`, затем PR → `main`).
-4. В **platform → Actions → Access** разрешить вызов workflows для **`web-ui`** (как для BC).
-5. Private **web-ui**: checkout в `deploy-web-ui.yml` через secret **`CALLER_ACCESS_TOKEN`** (= `GITHUB_TOKEN` caller из `trigger-deploy.yml`).
-6. Убедиться, что на VPS созданы каталоги static и nginx vhost (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
+Секрет **`PLATFORM_DISPATCH_TOKEN`** в **ui** (как в BC). VPS_* только в platform Environment.
 
 ### 3. Автотесты (pytest + unit) и merge gate
 
