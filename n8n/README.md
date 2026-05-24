@@ -8,7 +8,7 @@ Self-hosted оркестратор чата (образ **≥ 1.121.0**).
 
 Образ `ghcr.io/<owner>/n8n:<sha>-test|prod` ([`docker/n8n/Dockerfile`](../docker/n8n/Dockerfile)). Полный **Deploy to VPS** n8n **не** собирает (только BC-стек).
 
-Workflow из `n8n/workflows/*.json` синхронизируются **при каждом** старте контейнера: **SQLite purge** по имени (в 1.121 нет `delete:workflow`) → `import:workflow` (id `cgChatOrchestr01`, `cgChatToolStp01`) → `active=1` в БД. В логах: ровно два `Activated workflow` с этими id.
+Workflow из `/opt/workflows/*.json` **импортируются только при изменении** файлов в образе (sha256 bundle → `~/.n8n/.workflows-bundle.sha256`). Обычный `docker compose restart n8n` **не** пересоздаёт workflow — сохраняются executions/статистика. При деплое нового образа с другими JSON — один re-import (те же id `cgChatOrchestr01`, `cgChatToolStp01`, update in place). Дубликаты по имени удаляются без purge. Принудительно: `FORCE_WORKFLOW_REIMPORT=1` (полный purge + import).
 
 Порты: test **15678**, prod **5678** (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 

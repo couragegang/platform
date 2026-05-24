@@ -1,6 +1,7 @@
 #!/bin/sh
-# Удаляет ВСЕ workflow chat-orchestrator / chat-tool-step из SQLite.
-# n8n 1.121: команды delete:workflow нет — только прямой DELETE в БД (n8n остановлен).
+# Полный purge managed workflow (только при FORCE_WORKFLOW_REIMPORT=1).
+# Обычный рестарт: entrypoint не вызывает этот скрипт — import только при смене sha256 bundle.
+# n8n 1.121: delete:workflow нет — DELETE в SQLite (n8n остановлен).
 set -eu
 
 N8N_USER_FOLDER="${N8N_USER_FOLDER:-/home/node/.n8n}"
