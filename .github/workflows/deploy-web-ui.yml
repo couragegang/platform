@@ -28,6 +28,10 @@ on:
         description: owner/repo that triggered deploy (logging)
         required: false
         type: string
+    secrets:
+      CALLER_ACCESS_TOKEN:
+        description: GITHUB_TOKEN from web-ui (read private repo checkout)
+        required: false
 
 permissions:
   contents: read
@@ -93,6 +97,7 @@ jobs:
         with:
           repository: ${{ env.WEB_UI_REPO }}
           ref: ${{ env.WEB_UI_SHA }}
+          token: ${{ secrets.CALLER_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
