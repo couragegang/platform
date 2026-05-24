@@ -1,7 +1,8 @@
 # Baked n8n: официальный образ + workflow из platform/n8n/workflows + env контура.
 ARG DEPLOY_CONTOUR=prod
 
-FROM docker.n8n.io/n8nio/n8n:1.121.0 AS runtime
+# docker.n8n.io hits unauthenticated rate limits in CI; Hub image is the same tag.
+FROM docker.io/n8nio/n8n:1.121.0 AS runtime
 ARG DEPLOY_CONTOUR
 ENV DEPLOY_CONTOUR=${DEPLOY_CONTOUR}
 LABEL org.opencontainers.image.contour="${DEPLOY_CONTOUR}"
