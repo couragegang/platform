@@ -11,7 +11,10 @@ USER root
 COPY n8n/workflows/*.json /opt/workflows/
 COPY docker/n8n/entrypoint.sh /docker-entrypoint-custom.sh
 COPY docker/n8n/purge-managed-workflows.sh /opt/n8n/purge-managed-workflows.sh
-RUN chmod +x /docker-entrypoint-custom.sh /opt/n8n/purge-managed-workflows.sh
+RUN chmod +x /docker-entrypoint-custom.sh /opt/n8n/purge-managed-workflows.sh \
+  && (apk add --no-cache sqlite 2>/dev/null \
+      || (apt-get update && apt-get install -y --no-install-recommends sqlite3 \
+          && rm -rf /var/lib/apt/lists/*))
 
 USER node
 WORKDIR /home/node

@@ -73,7 +73,9 @@ function httpGet(name, pos, url, headers = [], query = []) {
 const ctx = "={{ $('Parse Context').first().json }}";
 const stepCtx = "={{ $('Parse Step Context').first().json }}";
 
+// Стабильные id — import перезаписывает ту же запись, без дубликатов по имени.
 const orchestrator = {
+  id: 'cgChatOrchestr01',
   name: 'chat-orchestrator',
   nodes: [
     {
@@ -318,6 +320,7 @@ return [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.a
 };
 
 const toolStep = {
+  id: 'cgChatToolStp01',
   name: 'chat-tool-step',
   nodes: [
     {

@@ -8,29 +8,47 @@ if [ -f /app/config/runtime-baked.env ]; then
   set +a
 fi
 
-# Импорт workflow из образа. Маркер версии — при смене bundle на VPS переимпортируется один раз.
-# import:workflow по умолчанию деактивирует workflow — activate ниже.
-WORKFLOW_BUNDLE_VERSION="${N8N_WORKFLOW_BUNDLE_VERSION:-v3-purge-dupes}"
-IMPORT_MARKER="/home/node/.n8n/.workflows-imported-${WORKFLOW_BUNDLE_VERSION}"
+N8N_USER_FOLDER="${N8N_USER_FOLDER:-/home/node/.n8n}"
+DB="${N8N_USER_FOLDER}/database.sqlite"
+MANAGED_IDS="cgChatOrchestr01 cgChatToolStp01"
 
-# Дубликаты chat-orchestrator (старый lastNode + новый onReceived) держат HTTP до конца run.
+# Образ = единственный источник правды: purge дубликатов → import → activate только managed id.
 if [ -x /opt/n8n/purge-managed-workflows.sh ]; then
   /opt/n8n/purge-managed-workflows.sh
 fi
 
-if [ ! -f "$IMPORT_MARKER" ]; then
-  mkdir -p /home/node/.n8n
-  for f in /opt/workflows/*.json; do
-    [ -f "$f" ] || continue
-    echo "Importing workflow: $f"
-    n8n import:workflow --input="$f" || echo "warn: import failed for $f" >&2
-  done
-  touch "$IMPORT_MARKER"
-fi
+mkdir -p "$N8N_USER_FOLDER"
+for f in /opt/workflows/*.json; do
+  [ -f "$f" ] || continue
+  echo "Importing workflow: $f"
+  n8n import:workflow --input="$f" || echo "warn: import failed for $f" >&2
+done
 
-echo "Activating workflows for production webhooks..."
-if ! n8n update:workflow --all --active=true 2>/dev/null; then
-  echo "warn: n8n update:workflow --all --active=true failed (check n8n CLI / DB)" >&2
+echo "Activating managed workflows only..."
+for wf_id in $MANAGED_IDS; do
+  if n8n update:workflow --id="$wf_id" --active=true 2>/dev/null; then
+    echo "Activated id=$wf_id"
+  else
+    echo "warn: activate failed id=$wf_id" >&2
+  fi
+done
+
+# Удалить лишние копии по имени (если purge/import оставили дубликаты).
+if [ -f "$DB" ] && command -v sqlite3 >/dev/null 2>&1; then
+  for name in chat-orchestrator chat-tool-step; do
+    keep_id=""
+    case "$name" in
+      chat-orchestrator) keep_id="cgChatOrchestr01" ;;
+      chat-tool-step) keep_id="cgChatToolStp01" ;;
+    esac
+    sqlite3 "$DB" "SELECT id FROM workflow_entity WHERE name='$name' AND id != '$keep_id';" \
+      | while IFS= read -r extra_id; do
+        [ -z "$extra_id" ] && continue
+        echo "Removing duplicate $name id=$extra_id"
+        n8n update:workflow --id="$extra_id" --active=false 2>/dev/null || true
+        n8n delete:workflow --id="$extra_id" 2>/dev/null || true
+      done
+  done
 fi
 
 exec n8n
