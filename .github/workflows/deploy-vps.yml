@@ -43,13 +43,26 @@ on:
         default: false
   push:
     branches: [main, test]
+    # push всегда deploy_scope=all (см. job resolve). n8n — только deploy-n8n.yml.
     paths:
       - "docker-compose.bake.yml"
-      - "deploy/**"
+      - "deploy/vps/docker-compose.yml"
+      - "deploy/vps/docker-compose.ports-*.yml"
+      - "deploy/vps/up.sh"
+      - "deploy/vps/ensure-databases.sh"
+      - "deploy/vps/nginx*.conf"
       - "docker/postgres/**"
       - "config/**"
-      - "scripts/**"
+      - "scripts/checkout-services.sh"
+      - "scripts/deploy-catalog.sh"
+      - "scripts/fetch-build-secrets.sh"
+      - "scripts/push-baked-images.sh"
+      - "scripts/sync-grafana-dashboards.sh"
       - ".github/workflows/deploy-vps.yml"
+    paths-ignore:
+      - "n8n/**"
+      - "docker/n8n/**"
+      - "deploy/vps/README.md"
   repository_dispatch:
     types: [deploy-vps]
   workflow_call:
@@ -131,6 +144,16 @@ jobs:
             tag="${{ github.sha }}-${contour}"
             scope="${{ github.event.inputs.deploy_scope }}"
             repo="${{ github.event.inputs.service_repo }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            # Push в platform = полный стек (не single). BC-репо шлют workflow_dispatch scope=single.
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              contour="prod"
+              tag="${{ github.sha }}-prod"
+            else
+              contour="test"
+              tag="${{ github.sha }}-test"
+            fi
+            scope="all"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             contour="prod"
             tag="${{ github.sha }}-prod"
