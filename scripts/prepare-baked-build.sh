@@ -78,7 +78,13 @@ for spec in "${SPECS[@]}"; do
     if [[ -n "$OIDC_EXTRA" && "$dir" == "iam-service" ]]; then
       cat "$OIDC_EXTRA"
     fi
-  } | awk 'BEGIN{seen[""]=0} /^[A-Za-z_][A-Za-z0-9_]*=/ {k=$0; sub(/=.*/,"",k); if(!seen[k]++){print}}' > "$out"
+  } | awk '/^[A-Za-z_][A-Za-z0-9_]*=/ {
+      eq = index($0, "=")
+      key = substr($0, 1, eq - 1)
+      val = substr($0, eq + 1)
+      if (val != "") last[key] = $0
+    }
+    END { for (k in last) print last[k] }' > "$out"
 
   echo "baked env -> $dir/docker/runtime-baked.env"
 done
