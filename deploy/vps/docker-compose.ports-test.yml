@@ -10,6 +10,9 @@ services:
     ports: ["18082:8082"]
   ai:
     ports: ["18083:8083"]
+    # В образе baked env; JAVA_TOOL_OPTIONS здесь — без пересборки ai (Java → n8n по IPv4)
+    environment:
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
   config:
     ports: ["18084:8084"]
   policy:

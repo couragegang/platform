@@ -84,14 +84,24 @@ services:
     restart: unless-stopped
     volumes:
       - n8n_data:/home/node/.n8n
+    healthcheck:
+      # entrypoint импортирует workflow до exec n8n — порт 5678 открывается только после
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
 
   ai:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG_AI:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
-      - iam
-      - policy
-      - n8n
+      iam:
+        condition: service_started
+      policy:
+        condition: service_started
+      n8n:
+        condition: service_healthy
 
   bff:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG_BFF:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}

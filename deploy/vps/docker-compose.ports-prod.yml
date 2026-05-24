@@ -10,6 +10,8 @@ services:
     ports: ["8082:8082"]
   ai:
     ports: ["8083:8083"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
   config:
     ports: ["8084:8084"]
   policy:

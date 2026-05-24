@@ -20,7 +20,8 @@
 - UI n8n через nginx: **`https://ai-test.valoriel.ru/n8n/`** (test), **`https://ai.valoriel.ru/n8n/`** (prod). Subpath: bake по контуру + `docker-compose.ports-*.yml` (не `VPS_PUBLIC_BASE_URL`).
 - **Push в `platform`:** workflow **Deploy to VPS** = полный стек (`deploy_scope=all`). Изменения только в `n8n/**` или этот README **не** запускают Deploy to VPS (см. `paths` / `paths-ignore` в `deploy-vps.yml`). Один сервис — push в BC-репо (`ai-runtime`, …) → `workflow_dispatch` с `deploy_scope=single`.
 - **n8n workflows:** import только при смене sha256 bundle в образе (не каждый restart). Стабильные id `cgChatOrchestr01` / `cgChatToolStp01`. Дубликаты — sqlite delete лишних id. Полный сброс: `FORCE_WORKFLOW_REIMPORT=1` на контейнере n8n.
-- **Нет executions в n8n:** `import:workflow` деактивирует workflow — entrypoint делает `n8n update:workflow --all --active=true` перед стартом. На уже развёрнутом volume без пересборки образа: `docker compose exec n8n n8n update:workflow --all --active=true` и `docker compose restart n8n`. У `ai`: `grep AI_ORCHESTRATOR /app/config/runtime-baked.env` → `n8n` и `AI_N8N_ENABLED=true`; в логах при старте: `useN8n=true`.
+- **Нет executions в n8n:** `import:workflow` деактивирует workflow — entrypoint активирует managed workflow в SQLite перед `exec n8n`. У `ai`: `grep AI_ORCHESTRATOR /app/config/runtime-baked.env` → `n8n` и `AI_N8N_ENABLED=true`; в логах при старте: `useN8n=true`.
+- **`ai` не достучался до n8n** (логи `ConnectException` / `HttpTimeoutException`): n8n должен быть **healthy** (порт 5678 после entrypoint import). Команды только с `export DEPLOY_CONTOUR=test` или `-p couragegang-test`. Проверка: `docker compose … exec ai wget -qS -O- --post-data='{}' --header='Content-Type: application/json' http://n8n:5678/webhook/chat-orchestrator`. `ai` стартует после `n8n` healthy (`depends_on`).
 
 ## Однократная настройка VPS
 
