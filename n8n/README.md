@@ -29,7 +29,7 @@ Workflow из `n8n/workflows/*.json` импортируются при **пер�
 
 | Файл | Webhook | Назначение |
 |------|---------|------------|
-| [`workflows/chat-orchestrator-v0.json`](workflows/chat-orchestrator-v0.json) | `/webhook/chat-orchestrator` | Маршрутизация DeepSeek, цепочка шагов, LLM-ответ |
+| [`workflows/chat-orchestrator-v0.json`](workflows/chat-orchestrator-v0.json) | `/webhook/chat-orchestrator` | Маршрутизация DeepSeek, цепочка шагов, LLM-ответ (webhook **onReceived** — ответ сразу, результат через callback в ai-runtime) |
 | [`workflows/chat-tool-step.json`](workflows/chat-tool-step.json) | `/webhook/chat-tool-step` | **Один** tool: policy → HITL / MCP invoke |
 
 Цепочка из N tools = N последовательных вызовов `chat-tool-step` из orchestrator.

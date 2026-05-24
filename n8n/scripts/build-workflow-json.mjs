@@ -90,7 +90,7 @@ const workflow = {
     node('Webhook', 'n8n-nodes-base.webhook', 2, [240, 320], {
       httpMethod: 'POST',
       path: 'chat-orchestrator',
-      responseMode: 'lastNode',
+      responseMode: 'onReceived',
       options: {},
     }, { webhookId: 'chat-orchestrator' }),
 

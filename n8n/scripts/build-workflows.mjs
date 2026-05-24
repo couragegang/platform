@@ -77,7 +77,8 @@ const orchestrator = {
   name: 'chat-orchestrator',
   nodes: [
     {
-      parameters: { httpMethod: 'POST', path: 'chat-orchestrator', responseMode: 'lastNode', options: {} },
+      // onReceived: ответ webhook сразу; ai-runtime ждёт callback, не HTTP-ответ workflow.
+      parameters: { httpMethod: 'POST', path: 'chat-orchestrator', responseMode: 'onReceived', options: {} },
       id: 'webhook-orchestrator',
       name: 'Webhook',
       type: 'n8n-nodes-base.webhook',

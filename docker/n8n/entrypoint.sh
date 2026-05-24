@@ -8,16 +8,18 @@ if [ -f /app/config/runtime-baked.env ]; then
   set +a
 fi
 
-# Импорт workflow из образа (один раз на volume).
-# import:workflow по умолчанию деактивирует workflow — без activate production webhook не работает.
-if [ ! -f /home/node/.n8n/.workflows-imported ]; then
+# Импорт workflow из образа. Маркер версии — при смене bundle на VPS переимпортируется один раз.
+# import:workflow по умолчанию деактивирует workflow — activate ниже.
+WORKFLOW_BUNDLE_VERSION="${N8N_WORKFLOW_BUNDLE_VERSION:-v2-onReceived}"
+IMPORT_MARKER="/home/node/.n8n/.workflows-imported-${WORKFLOW_BUNDLE_VERSION}"
+if [ ! -f "$IMPORT_MARKER" ]; then
   mkdir -p /home/node/.n8n
   for f in /opt/workflows/*.json; do
     [ -f "$f" ] || continue
     echo "Importing workflow: $f"
     n8n import:workflow --input="$f" || echo "warn: import failed for $f" >&2
   done
-  touch /home/node/.n8n/.workflows-imported
+  touch "$IMPORT_MARKER"
 fi
 
 echo "Activating workflows for production webhooks..."
