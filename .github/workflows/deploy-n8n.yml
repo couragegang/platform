@@ -21,7 +21,7 @@ on:
       redeploy_ai:
         description: Also restart ai-runtime (after ai.env / orchestrator changes)
         type: boolean
-        default: false
+        default: true
   push:
     branches: [main, test]
     paths:

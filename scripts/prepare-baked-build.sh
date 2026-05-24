@@ -42,7 +42,7 @@ SPECS=(
   "knowledge-service:knowledge:knowledge-service.jar:knowledge.env"
   "mcp-notion::mcp-notion.jar:mcp-notion.env"
   "mcp-gateway:mcp:app.jar:mcp.env"
-  "ai-runtime::app.jar:ai.env"
+  "ai-runtime:ai:app.jar:ai.env"
   "bff-gateway::app.jar:bff.env"
 )
 
