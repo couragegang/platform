@@ -214,6 +214,8 @@ jobs:
           ref: ${{ env.PLATFORM_REF }}
 
       - name: Checkout microservices
+        env:
+          SERVICE_CHECKOUT_TOKEN: ${{ secrets.SECRET_SYNC_PAT }}
         run: |
           chmod +x scripts/checkout-services.sh
           if [[ "$DEPLOY_SCOPE" == "single" ]]; then

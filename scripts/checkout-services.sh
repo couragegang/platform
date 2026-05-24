@@ -48,7 +48,13 @@ for repo in "${repos[@]}"; do
     continue
   fi
   echo "clone couragegang/${repo}@${BRANCH} -> $dest"
-  git clone --depth 1 --branch "$BRANCH" "https://github.com/couragegang/${repo}.git" "$dest"
+  token="${SERVICE_CHECKOUT_TOKEN:-${GITHUB_TOKEN:-}}"
+  if [[ -n "$token" ]]; then
+    git clone --depth 1 --branch "$BRANCH" \
+      "https://x-access-token:${token}@github.com/couragegang/${repo}.git" "$dest"
+  else
+    git clone --depth 1 --branch "$BRANCH" "https://github.com/couragegang/${repo}.git" "$dest"
+  fi
 done
 
 echo "Services ready under $SERVICES_ROOT (branch=$BRANCH, contour=$CONTOUR)"
