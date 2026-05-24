@@ -59,10 +59,6 @@ on:
       - "scripts/push-baked-images.sh"
       - "scripts/sync-grafana-dashboards.sh"
       - ".github/workflows/deploy-vps.yml"
-    paths-ignore:
-      - "n8n/**"
-      - "docker/n8n/**"
-      - "deploy/vps/README.md"
   repository_dispatch:
     types: [deploy-vps]
   workflow_call:
