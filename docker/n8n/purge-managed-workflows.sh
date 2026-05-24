@@ -1,37 +1,69 @@
 #!/bin/sh
-# Удаляет ВСЕ workflow chat-orchestrator / chat-tool-step (дубликаты от повторного import).
+# Удаляет ВСЕ workflow chat-orchestrator / chat-tool-step из SQLite.
+# n8n 1.121: команды delete:workflow нет — только прямой DELETE в БД (n8n остановлен).
 set -eu
 
 N8N_USER_FOLDER="${N8N_USER_FOLDER:-/home/node/.n8n}"
 DB="${N8N_USER_FOLDER}/database.sqlite"
-MANAGED_IDS="cgChatOrchestr01 cgChatToolStp01"
+MANAGED_NAMES="chat-orchestrator chat-tool-step"
 
-if ! command -v n8n >/dev/null 2>&1; then
-  echo "warn: n8n CLI not found, skip purge" >&2
-  exit 0
-fi
+purge_managed_in_sqlite() {
+  if [ ! -f "$DB" ] || ! command -v sqlite3 >/dev/null 2>&1; then
+    echo "warn: sqlite3 or $DB missing, cannot purge workflows" >&2
+    return 1
+  fi
 
-delete_workflow_id() {
-  wf_id="$1"
-  [ -z "$wf_id" ] && return 0
-  echo "Deleting workflow id=$wf_id"
-  n8n update:workflow --id="$wf_id" --active=false 2>/dev/null || true
-  n8n delete:workflow --id="$wf_id" 2>/dev/null || echo "warn: delete failed id=$wf_id" >&2
+  count="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');" 2>/dev/null || echo 0)"
+  if [ "$count" = "0" ]; then
+    echo "No managed workflows in DB to purge"
+    return 0
+  fi
+
+  echo "Purging $count managed workflow(s) from SQLite..."
+
+  # Связанные таблицы (n8n 1.x) — best-effort, игнорируем отсутствующие.
+  sqlite3 "$DB" <<'EOSQL' 2>/dev/null || true
+DELETE FROM webhook_entity WHERE workflowId IN (
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+);
+DELETE FROM shared_workflow WHERE workflowId IN (
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+);
+DELETE FROM workflows_tags WHERE workflowId IN (
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+);
+DELETE FROM workflow_history WHERE workflowId IN (
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+);
+DELETE FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');
+EOSQL
+
+  remaining="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');" 2>/dev/null || echo 0)"
+  if [ "$remaining" != "0" ]; then
+    echo "warn: $remaining managed workflow row(s) still in DB after purge" >&2
+    return 1
+  fi
+  echo "Purged managed workflows from DB"
 }
 
-if [ -f "$DB" ] && command -v sqlite3 >/dev/null 2>&1; then
-  sqlite3 "$DB" "SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');" \
-    | while IFS= read -r wf_id; do
-      delete_workflow_id "$wf_id"
-    done
-else
-  echo "warn: sqlite3 or DB missing, trying n8n export list" >&2
-  for wf_id in $(n8n export:workflow --all 2>/dev/null | sed -n 's/.*"id":"\([^"]*\)".*"name":"chat-orchestrator".*/\1/p' 2>/dev/null || true); do
-    delete_workflow_id "$wf_id"
-  done
-fi
+purge_extra_by_name() {
+  keep_id="$1"
+  name="$2"
+  [ -f "$DB" ] || return 0
+  command -v sqlite3 >/dev/null 2>&1 || return 0
 
-# На случай старых записей с фиксированными id (перед re-import).
-for wf_id in $MANAGED_IDS; do
-  delete_workflow_id "$wf_id"
-done
+  sqlite3 "$DB" "SELECT id FROM workflow_entity WHERE name='$name' AND id != '$keep_id';" 2>/dev/null \
+    | while IFS= read -r extra_id; do
+      [ -z "$extra_id" ] && continue
+      echo "Removing duplicate $name id=$extra_id (sqlite)"
+      sqlite3 "$DB" <<EOSQL 2>/dev/null || true
+DELETE FROM webhook_entity WHERE workflowId = '$extra_id';
+DELETE FROM shared_workflow WHERE workflowId = '$extra_id';
+DELETE FROM workflows_tags WHERE workflowId = '$extra_id';
+DELETE FROM workflow_history WHERE workflowId = '$extra_id';
+DELETE FROM workflow_entity WHERE id = '$extra_id';
+EOSQL
+    done
+}
+
+purge_managed_in_sqlite
