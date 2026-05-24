@@ -29,6 +29,11 @@
     "dbName": "knowledge",
     "fragment": "knowledge.env"
   },
+  "mcp-notion": {
+    "jar": "mcp-notion.jar",
+    "dbName": "",
+    "fragment": "mcp-notion.env"
+  },
   "mcp-gateway": {
     "jar": "app.jar",
     "dbName": "mcp",

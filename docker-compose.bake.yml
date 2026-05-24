@@ -66,6 +66,16 @@ services:
         DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG:-latest}
 
+  mcp-notion:
+    <<: *bake-image
+    build:
+      context: ../services/mcp-notion
+      dockerfile: Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-notion:${IMAGE_TAG:-latest}
+
   mcp:
     <<: *bake-image
     build:
@@ -105,3 +115,13 @@ services:
       args:
         DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG:-latest}
+
+  n8n:
+    <<: *bake-image
+    build:
+      context: .
+      dockerfile: docker/n8n/Dockerfile
+      target: baked
+      args:
+        DEPLOY_CONTOUR: ${DEPLOY_CONTOUR:-prod}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/n8n:${IMAGE_TAG:-latest}

@@ -60,17 +60,19 @@ tag_key_for_compose() {
     secrets) echo IMAGE_TAG_SECRETS ;;
     audit) echo IMAGE_TAG_AUDIT ;;
     iam) echo IMAGE_TAG_IAM ;;
+    mcp-notion) echo IMAGE_TAG_MCP_NOTION ;;
     mcp) echo IMAGE_TAG_MCP ;;
     knowledge) echo IMAGE_TAG_KNOWLEDGE ;;
     ai) echo IMAGE_TAG_AI ;;
     bff) echo IMAGE_TAG_BFF ;;
+    n8n) echo IMAGE_TAG_N8N ;;
     *) echo "unknown compose service: $1" >&2; return 1 ;;
   esac
 }
 
 all_tag_keys() {
   printf '%s\n' IMAGE_TAG_POSTGRES IMAGE_TAG_CONFIG IMAGE_TAG_POLICY IMAGE_TAG_SECRETS \
-    IMAGE_TAG_AUDIT IMAGE_TAG_IAM IMAGE_TAG_MCP IMAGE_TAG_KNOWLEDGE IMAGE_TAG_AI IMAGE_TAG_BFF
+    IMAGE_TAG_AUDIT IMAGE_TAG_IAM IMAGE_TAG_MCP_NOTION IMAGE_TAG_MCP IMAGE_TAG_KNOWLEDGE IMAGE_TAG_AI IMAGE_TAG_BFF IMAGE_TAG_N8N
 }
 
 upsert_tag() {

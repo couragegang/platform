@@ -37,6 +37,7 @@ SPECS=(
   "secrets-service:secrets:secrets-service.jar:secrets.env"
   "audit-service:audit:audit-service.jar:audit.env"
   "knowledge-service:knowledge:knowledge-service.jar:knowledge.env"
+  "mcp-notion::mcp-notion.jar:mcp-notion.env"
   "mcp-gateway:mcp:app.jar:mcp.env"
   "ai-runtime::app.jar:ai.env"
   "bff-gateway::app.jar:bff.env"
@@ -78,5 +79,27 @@ for spec in "${SPECS[@]}"; do
 
   echo "baked env -> $dir/docker/runtime-baked.env"
 done
+
+prepare_n8n_baked_env() {
+  if [[ -n "$ONLY_REPO" && "$ONLY_REPO" != "platform" ]]; then
+    return 0
+  fi
+  docker_dir="$PLATFORM_ROOT/docker/n8n"
+  mkdir -p "$docker_dir"
+  echo "runtime-baked.env" >"$docker_dir/.gitignore"
+  chmod +x "$docker_dir/entrypoint.sh"
+
+  out="$docker_dir/runtime-baked.env"
+  {
+    echo "DEPLOY_CONTOUR=$CONTOUR"
+    cat "$PLATFORM_ROOT/config/bake/fragments/n8n.env"
+    for key in AI_INTERNAL_API_KEY POLICY_INTERNAL_API_KEY MCP_INTERNAL_API_KEY; do
+      grep "^${key}=" "$SECRETS_ENV" || true
+    done
+  } | awk 'BEGIN{seen[""]=0} /^[A-Za-z_][A-Za-z0-9_]*=/ {k=$0; sub(/=.*/,"",k); if(!seen[k]++){print}}' >"$out"
+  echo "baked env -> docker/n8n/runtime-baked.env"
+}
+
+prepare_n8n_baked_env
 
 echo "Prepare baked build complete (contour=$CONTOUR only_repo=${ONLY_REPO:-all})"

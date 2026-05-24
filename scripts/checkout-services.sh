@@ -32,6 +32,7 @@ else
     audit-service
     knowledge-service
     mcp-gateway
+    mcp-notion
     ai-runtime
     bff-gateway
   )

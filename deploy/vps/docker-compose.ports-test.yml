@@ -20,3 +20,7 @@ services:
     ports: ["18087:8087"]
   knowledge:
     ports: ["18088:8088"]
+  n8n:
+    ports: ["15678:5678"]
+  mcp-notion:
+    ports: ["18091:8091"]

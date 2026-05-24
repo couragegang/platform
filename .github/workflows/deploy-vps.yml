@@ -31,6 +31,7 @@ on:
           - secrets-service
           - audit-service
           - knowledge-service
+          - mcp-notion
           - mcp-gateway
           - bff-gateway
       image_tag:
@@ -46,6 +47,7 @@ on:
       - "docker-compose.bake.yml"
       - "deploy/**"
       - "docker/**"
+      - "n8n/**"
       - "config/**"
       - "scripts/**"
       - ".github/workflows/deploy-vps.yml"

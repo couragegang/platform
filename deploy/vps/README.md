@@ -9,7 +9,14 @@
 | **test** | Staging / приёмочный стенд | `/opt/couragegang-test` | `<sha>-test`, `test-latest` |
 | **prod** | Production | `/opt/couragegang-prod` | `<sha>-prod`, `prod-latest` |
 
-**test** и **prod** на **одном** VPS: host-порты **только** в оверлеях — test **18080–18088** (`docker-compose.ports-test.yml`), prod **8080–8088** (`docker-compose.ports-prod.yml`). В базовом `docker-compose.yml` секции `ports` нет (иначе Compose **дописывает** порты из двух файлов, и test пытается занять 8080, уже занятый prod).
+**test** и **prod** на **одном** VPS: host-порты **только** в оверлеях — test **18080–18088** + n8n **15678** (`docker-compose.ports-test.yml`), prod **8080–8088** + n8n **5678** (`docker-compose.ports-prod.yml`). В базовом `docker-compose.yml` секции `ports` нет (иначе Compose **дописывает** порты из двух файлов, и test пытается занять 8080, уже занятый prod).
+
+### n8n (оркестратор чата)
+
+- Образ **`ghcr.io/<owner>/n8n:<sha>-<contour>`** — baked в CI (`docker/n8n/Dockerfile`), workflow внутри образа (`n8n import:workflow` при первом старте).
+- `ai-runtime` на VPS: `AI_ORCHESTRATOR=n8n` (фрагмент `config/bake/fragments/ai.env`).
+- Секрет **`AI_INTERNAL_API_KEY`** — в GitHub Environment **test** / **prod** (как остальные internal keys).
+- UI n8n: test `http://<vps>:15678`, prod `http://<vps>:5678` (или только внутренняя сеть `http://n8n:5678`).
 
 ## Однократная настройка VPS
 

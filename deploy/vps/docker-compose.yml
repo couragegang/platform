@@ -53,6 +53,10 @@ services:
       config:
         condition: service_started
 
+  mcp-notion:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-notion:${IMAGE_TAG_MCP_NOTION:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
+    restart: unless-stopped
+
   mcp:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG_MCP:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
@@ -65,6 +69,8 @@ services:
         condition: service_started
       audit:
         condition: service_started
+      mcp-notion:
+        condition: service_started
 
   knowledge:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG_KNOWLEDGE:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
@@ -73,12 +79,19 @@ services:
       postgres:
         condition: service_healthy
 
+  n8n:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/n8n:${IMAGE_TAG_N8N:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
+    restart: unless-stopped
+    volumes:
+      - n8n_data:/home/node/.n8n
+
   ai:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG_AI:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
       - iam
       - policy
+      - n8n
 
   bff:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG_BFF:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
@@ -94,3 +107,4 @@ services:
 
 volumes:
   pgdata:
+  n8n_data:

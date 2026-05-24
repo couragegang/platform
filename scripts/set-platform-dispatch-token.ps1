@@ -9,6 +9,7 @@ $repos = @(
   'couragegang/ui',
   'couragegang/iam-service',
   'couragegang/mcp-gateway',
+  'couragegang/mcp-notion',
   'couragegang/bff-gateway',
   'couragegang/ai-runtime',
   'couragegang/config-service',

@@ -23,6 +23,7 @@ $AllServices = @(
     "ai-runtime",
     "bff-gateway",
     "mcp-gateway",
+    "mcp-notion",
     "config-service",
     "knowledge-service"
 )
