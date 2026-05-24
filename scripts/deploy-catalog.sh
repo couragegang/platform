@@ -15,6 +15,7 @@ deploy_catalog_resolve() {
     knowledge-service) echo "knowledge|knowledge-service|knowledge|IMAGE_TAG_KNOWLEDGE" ;;
     ai-runtime) echo "ai|ai-runtime|ai|IMAGE_TAG_AI" ;;
     bff-gateway) echo "bff|bff-gateway|bff|IMAGE_TAG_BFF" ;;
+    n8n) echo "n8n|n8n|n8n|IMAGE_TAG_N8N" ;;
     platform) echo "postgres|platform-postgres|postgres|IMAGE_TAG_POSTGRES" ;;
     *)
       echo "unknown repo: $repo" >&2

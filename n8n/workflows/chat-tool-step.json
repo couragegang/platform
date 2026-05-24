@@ -1,0 +1,599 @@
+{
+  "name": "chat-tool-step",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-tool-step",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-tool-step",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "chat-tool-step"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse webhook body + env for one tool step in a chain.\r\nconst env = typeof $env !== 'undefined' ? $env : process.env;\r\nconst body = $input.first().json.body || $input.first().json;\r\n\r\nconst aiBase = env.N8N_AI_BASE_URL || 'http://ai:8083/v1/ai';\r\nconst mcpBase = env.N8N_MCP_BASE_URL || 'http://mcp:8081/v1/mcp';\r\nconst policyBase = env.N8N_POLICY_BASE_URL || 'http://policy:8085/v1/policy';\r\nconst aiKey = env.AI_INTERNAL_API_KEY || 'dev-internal-key';\r\nconst policyKey = env.POLICY_INTERNAL_API_KEY || 'dev-internal-key';\r\nconst mcpKey = env.MCP_INTERNAL_API_KEY || 'dev-internal-key';\r\n\r\nconst step = body.step;\r\nconst stepIndex = body.stepIndex || 1;\r\nconst totalSteps = body.totalSteps || 1;\r\n\r\nconst base = {\r\n  orgId: body.orgId,\r\n  workspaceId: body.workspaceId,\r\n  userId: body.userId,\r\n  runId: body.runId,\r\n  stepIndex,\r\n  totalSteps,\r\n  aiBase,\r\n  mcpBase,\r\n  policyBase,\r\n  aiKey,\r\n  policyKey,\r\n  mcpKey,\r\n};\r\n\r\nif (!step?.connectorKey || !step?.toolName) {\r\n  return [{ json: { ...base, valid: false, error: 'Invalid tool step payload' } }];\r\n}\r\n\r\nconst toolArgs = step.arguments || {};\r\nreturn [\r\n  {\r\n    json: {\r\n      ...base,\r\n      valid: true,\r\n      step: {\r\n        connectorKey: step.connectorKey,\r\n        toolName: step.toolName,\r\n        arguments: toolArgs,\r\n      },\r\n      fmtBody: {\r\n        connectorKey: step.connectorKey,\r\n        toolName: step.toolName,\r\n        arguments: toolArgs,\r\n        stepIndex,\r\n        totalSteps,\r\n      },\r\n    },\r\n  },\r\n];\r\n"
+      },
+      "id": "parse-step-context",
+      "name": "Parse Step Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ ={{ $('Parse Step Context').first().json }}.valid ? \"yes\" : \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-valid-step",
+      "name": "IF Valid Step?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const err = $('Parse Step Context').first().json.error || 'Invalid tool step payload';\r\nreturn [{ json: { action: 'complete', callback: { status: 'error', reply: err } } }];\r\n"
+      },
+      "id": "build-error-response",
+      "name": "Build Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.policyBase }}/internal/evaluate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Policy-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.policyKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n        orgId: ={{ $('Parse Step Context').first().json }}.orgId,\n        workspaceId: ={{ $('Parse Step Context').first().json }}.workspaceId,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        toolArguments: ={{ $('Parse Step Context').first().json }}.step.arguments,\n        userId: ={{ $('Parse Step Context').first().json }}.userId || undefined\n      }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "policy-evaluate",
+      "name": "Policy Evaluate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "approval",
+              "leftValue": "={{ $(\"Policy Evaluate\").first().json.decision === \"require_approval\" ? \"yes\" : \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-require-approval",
+      "name": "IF Require Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/hitl/format-approval",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(={{ $('Parse Step Context').first().json }}.fmtBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "format-approval",
+      "name": "Format Approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/runs/{{ ={{ $('Parse Step Context').first().json }}.runId }}/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n        status: \"awaiting_approval\",\n        reply: $(\"Format Approval\").first().json.message,\n        pendingApprovalId: $(\"Policy Evaluate\").first().json.pendingApprovalId,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey\n      }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "callback-awaiting",
+      "name": "Callback Awaiting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { callbackStatus: 'awaiting_approval' } }];"
+      },
+      "id": "set-status-approval",
+      "name": "Set Status Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "deny",
+              "leftValue": "={{ $(\"Policy Evaluate\").first().json.decision === \"deny\" ? \"yes\" : \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-deny",
+      "name": "IF Deny?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1260,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/hitl/format-denied",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(={{ $('Parse Step Context').first().json }}.fmtBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "format-denied",
+      "name": "Format Denied",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/runs/{{ ={{ $('Parse Step Context').first().json }}.runId }}/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n        status: \"denied\",\n        reply: $(\"Format Denied\").first().json.message,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey\n      }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "callback-denied",
+      "name": "Callback Denied",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { callbackStatus: 'denied' } }];"
+      },
+      "id": "set-status-denied",
+      "name": "Set Status Denied",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Step Context').first().json }}.mcpBase }}/internal/workspaces/{{ ={{ $('Parse Step Context').first().json }}.workspaceId }}/tools/invoke",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Mcp-Internal-Key",
+              "value": "={{ ={{ $('Parse Step Context').first().json }}.mcpKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        arguments: ={{ $('Parse Step Context').first().json }}.step.arguments\n      }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "mcp-invoke",
+      "name": "MCP Invoke",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { action: 'complete', callback: { status: $json.callbackStatus || 'completed' } } }];\r\n"
+      },
+      "id": "return-complete",
+      "name": "Return Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const inv = $('MCP Invoke').first().json;\r\nreturn [\r\n  {\r\n    json: {\r\n      action: 'continue',\r\n      stepResult: {\r\n        ok: inv.ok,\r\n        summary: inv.summary,\r\n        error: inv.error,\r\n      },\r\n    },\r\n  },\r\n];\r\n"
+      },
+      "id": "return-continue",
+      "name": "Return Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        740
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Step Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Step Context": {
+      "main": [
+        [
+          {
+            "node": "IF Valid Step?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid Step?": {
+      "main": [
+        [
+          {
+            "node": "Policy Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy Evaluate": {
+      "main": [
+        [
+          {
+            "node": "IF Require Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Require Approval?": {
+      "main": [
+        [
+          {
+            "node": "Format Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Deny?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Approval": {
+      "main": [
+        [
+          {
+            "node": "Callback Awaiting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Awaiting": {
+      "main": [
+        [
+          {
+            "node": "Set Status Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Status Approval": {
+      "main": [
+        [
+          {
+            "node": "Return Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Deny?": {
+      "main": [
+        [
+          {
+            "node": "Format Denied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MCP Invoke",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Denied": {
+      "main": [
+        [
+          {
+            "node": "Callback Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Denied": {
+      "main": [
+        [
+          {
+            "node": "Set Status Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Status Denied": {
+      "main": [
+        [
+          {
+            "node": "Return Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Invoke": {
+      "main": [
+        [
+          {
+            "node": "Return Continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "chat-tool-step-v2-visual",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

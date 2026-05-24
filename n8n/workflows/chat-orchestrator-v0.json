@@ -1,0 +1,844 @@
+{
+  "name": "chat-orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-orchestrator",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-orchestrator",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "chat-orchestrator"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const env = typeof $env !== 'undefined' ? $env : process.env;\r\nconst body = $input.first().json.body || $input.first().json;\r\nreturn [{\r\n  json: {\r\n    runId: body.runId,\r\n    conversationId: body.conversationId,\r\n    orgId: body.orgId,\r\n    workspaceId: body.workspaceId,\r\n    userId: body.userId,\r\n    message: body.message || '',\r\n    approvedPendingApprovalId: body.approvedPendingApprovalId || null,\r\n    aiBase: env.N8N_AI_BASE_URL || 'http://ai:8083/v1/ai',\r\n    mcpBase: env.N8N_MCP_BASE_URL || 'http://mcp:8081/v1/mcp',\r\n    policyBase: env.N8N_POLICY_BASE_URL || 'http://policy:8085/v1/policy',\r\n    knowledgeBase: env.N8N_KNOWLEDGE_BASE_URL || 'http://knowledge:8088/v1/knowledge',\r\n    aiKey: env.AI_INTERNAL_API_KEY || 'dev-internal-key',\r\n    policyKey: env.POLICY_INTERNAL_API_KEY || 'dev-internal-key',\r\n    mcpKey: env.MCP_INTERNAL_API_KEY || 'dev-internal-key',\r\n  },\r\n}];\r\n"
+      },
+      "id": "parse-context",
+      "name": "Parse Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "resume",
+              "leftValue": "={{ ={{ $('Parse Context').first().json }}.approvedPendingApprovalId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-hitl-resume",
+      "name": "IF HITL Resume?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ={{ $('Parse Context').first().json }}.aiBase }}/internal/conversations/{{ ={{ $('Parse Context').first().json }}.conversationId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Context').first().json }}.aiKey }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "resume-history",
+      "name": "Resume History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ={{ $('Parse Context').first().json }}.policyBase }}/pending-approvals/{{ ={{ $('Parse Context').first().json }}.approvedPendingApprovalId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendQuery": false,
+        "queryParameters": {
+          "parameters": []
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "resume-pending",
+      "name": "Resume Pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "resume-merge",
+      "name": "Resume Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1020,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx = $('Parse Context').first().json;\r\nconst historyRaw = $('Resume: History').first().json.items || [];\r\nconst pending = $('Resume: Pending').first().json;\r\n\r\nconst history = historyRaw\r\n  .filter((m) => m.role && m.content)\r\n  .map((m) => ({ role: m.role, content: m.content }));\r\n\r\nfunction buildToolContextMessage(hist) {\r\n  const parts = [];\r\n  let lastAssistant = null;\r\n  for (const turn of hist) {\r\n    if (turn.role === 'assistant') lastAssistant = turn;\r\n    else if (turn.role === 'user' && turn.content?.trim()) parts.push(turn.content.trim());\r\n  }\r\n  let sb = '';\r\n  if (lastAssistant?.content?.trim()) sb += 'Контекст ассистента: ' + lastAssistant.content.trim();\r\n  if (parts.length) {\r\n    if (sb) sb += '\\n';\r\n    sb += 'Запросы пользователя: ' + parts.join(' | ');\r\n  }\r\n  return sb;\r\n}\r\n\r\nfunction lastUserContent(hist) {\r\n  for (let i = hist.length - 1; i >= 0; i--) {\r\n    const t = hist[i];\r\n    if (t.role === 'user' && t.content?.trim()) return t.content.trim();\r\n  }\r\n  return null;\r\n}\r\n\r\nfunction notionToolArguments(toolName, hist, fallback) {\r\n  const n = (toolName || '').toLowerCase();\r\n  const lastUser = lastUserContent(hist);\r\n  if (n.includes('write') || n.includes('create')) {\r\n    const content = fallback?.trim() || lastUser || '';\r\n    return { content, message: content, title: lastUser };\r\n  }\r\n  const query = lastUser || fallback || '';\r\n  return { query, q: query, content: query, message: query };\r\n}\r\n\r\nif (!pending || pending.status !== 'approved') {\r\n  return [\r\n    {\r\n      json: {\r\n        skipInvoke: true,\r\n        payload: {\r\n          status: 'error',\r\n          reply: 'Не удалось выполнить действие: подтверждение не найдено или уже недействительно.',\r\n        },\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nconst toolName = pending.toolName;\r\nconst connectorKey = 'notion';\r\nlet toolMessage = buildToolContextMessage(history);\r\nif (!toolMessage?.trim()) toolMessage = ctx.message;\r\nconst toolArguments = notionToolArguments(toolName, history, toolMessage);\r\n\r\nreturn [{ json: { toolName, connectorKey, toolArguments, skipInvoke: false } }];\r\n"
+      },
+      "id": "resume-prepare",
+      "name": "Resume Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Context').first().json }}.mcpBase }}/internal/workspaces/{{ ={{ $('Parse Context').first().json }}.workspaceId }}/tools/invoke",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Mcp-Internal-Key",
+              "value": "={{ ={{ $('Parse Context').first().json }}.mcpKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ connectorKey: $json.connectorKey, toolName: $json.toolName, arguments: $json.toolArguments }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "resume-mcp",
+      "name": "Resume MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx = $('Parse Context').first().json;\nconst prep = $('Resume Prepare').first().json;\nlet payload = prep.payload;\nif (!prep.skipInvoke) {\n  const inv = $('Resume MCP').first().json;\n  payload = { status: inv.ok ? 'completed' : 'error', reply: inv.ok ? inv.summary : ('Ошибка: ' + (inv.error||'failed')), toolName: prep.toolName, connectorKey: prep.connectorKey };\n}\nawait this.helpers.httpRequest({ method:'POST', url: ctx.aiBase + '/internal/runs/' + ctx.runId + '/complete', headers:{'X-Ai-Internal-Key':ctx.aiKey,'Content-Type':'application/json'}, body: payload, json:true });\nreturn [{ json: payload }];"
+      },
+      "id": "resume-callback",
+      "name": "Resume Callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ={{ $('Parse Context').first().json }}.aiBase }}/internal/conversations/{{ ={{ $('Parse Context').first().json }}.conversationId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ ={{ $('Parse Context').first().json }}.aiKey }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "load-history",
+      "name": "Load History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ={{ $('Parse Context').first().json }}.mcpBase }}/workspaces/{{ ={{ $('Parse Context').first().json }}.workspaceId }}/installations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendQuery": false,
+        "queryParameters": {
+          "parameters": []
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "load-installations",
+      "name": "Load Installations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ={{ $('Parse Context').first().json }}.knowledgeBase }}/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ orgId: ={{ $('Parse Context').first().json }}.orgId, workspaceId: ={{ $('Parse Context').first().json }}.workspaceId, query: ={{ $('Parse Context').first().json }}.message, connectorKeys: null, sourceIds: null }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "load-knowledge",
+      "name": "Load Knowledge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge-for-route",
+      "name": "Merge for Route",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Merge parallel context loads → payload for POST /internal/llm/route\r\nconst ctx = $('Parse Context').first().json;\r\nconst items = $input.all().map((i) => i.json);\r\n\r\nlet historyItems = [];\r\nlet installations = { items: [] };\r\nlet knowledge = { items: [] };\r\nfor (const j of items) {\r\n  if (Array.isArray(j.items) && j.items[0]?.role) historyItems = j.items;\r\n  else if (Array.isArray(j.items) && j.items[0]?.connectorKey !== undefined) installations = j;\r\n  else if (Array.isArray(j.items)) knowledge = j;\r\n}\r\n\r\nconst messages = (historyItems || [])\r\n  .filter((m) => m.role && m.content)\r\n  .map((m) => ({ role: m.role, content: m.content }));\r\n\r\nconst activeConnectorKeys = [];\r\nfor (const inst of installations.items || []) {\r\n  const st = inst.status || '';\r\n  if (st === 'active' || st === 'error') activeConnectorKeys.push(inst.connectorKey);\r\n}\r\n\r\nconst knowledgeContext = (knowledge.items || [])\r\n  .slice(0, 5)\r\n  .map((h) => `- ${h.title || 'doc'}: ${h.snippet || ''}`)\r\n  .join('\\n');\r\n\r\nreturn [\r\n  {\r\n    json: {\r\n      ...ctx,\r\n      routeRequest: {\r\n        message: ctx.message,\r\n        messages,\r\n        activeConnectorKeys,\r\n        knowledgeContext: knowledgeContext || null,\r\n      },\r\n    },\r\n  },\r\n];\r\n"
+      },
+      "id": "prepare-route-body",
+      "name": "Prepare Route Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Route Body').first().json.aiBase }}/internal/llm/route",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ $('Prepare Route Body').first().json.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare Route Body').first().json.routeRequest) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "llm-route",
+      "name": "LLM Route",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "chain",
+              "leftValue": "={{ $json.mode === \"tool_chain\" && ($json.steps || []).length > 0 ? \"yes\" : \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-tool-chain",
+      "name": "IF Tool Chain?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1640,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Sequential calls to chat-tool-step sub-workflow (separate n8n pipeline per step).\r\nconst env = typeof $env !== 'undefined' ? $env : process.env;\r\nconst toolStepUrl =\r\n  env.N8N_TOOL_STEP_WEBHOOK_URL || 'http://n8n:5678/webhook/chat-tool-step';\r\n\r\nconst ctx = $('Parse Context').first().json;\r\nconst plan = $('LLM Route').first().json;\r\nconst steps = plan.steps || [];\r\n\r\nif (!steps.length) {\r\n  return [{ json: { skipped: true, reason: 'no steps' } }];\r\n}\r\n\r\nconst priorResults = [];\r\nfor (let i = 0; i < steps.length; i++) {\r\n  const step = steps[i];\r\n  const res = await this.helpers.httpRequest({\r\n    method: 'POST',\r\n    url: toolStepUrl,\r\n    json: true,\r\n    body: {\r\n      ...ctx,\r\n      step,\r\n      stepIndex: i + 1,\r\n      totalSteps: steps.length,\r\n      priorResults,\r\n    },\r\n  });\r\n\r\n  if (res.action === 'complete') {\r\n    return [{ json: { completedInStep: true, callback: res.callback, stepIndex: i + 1 } }];\r\n  }\r\n\r\n  priorResults.push({\r\n    stepIndex: i + 1,\r\n    connectorKey: step.connectorKey,\r\n    toolName: step.toolName,\r\n    label: step.label,\r\n    ok: res.stepResult?.ok,\r\n    summary: res.stepResult?.summary,\r\n    error: res.stepResult?.error,\r\n  });\r\n}\r\n\r\nreturn [{ json: { completedInStep: false, priorResults, plan } }];\r\n"
+      },
+      "id": "run-tool-chain",
+      "name": "Run Tool Chain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "done",
+              "leftValue": "={{ $json.completedInStep ? \"yes\" : \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-completed-in-step",
+      "name": "IF Completed In Step?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx = $('Parse Context').first().json;\r\nconst chain = $input.first().json;\r\nconst env = typeof $env !== 'undefined' ? $env : process.env;\r\nconst aiBase = env.N8N_AI_BASE_URL || 'http://ai:8083/v1/ai';\r\nconst aiKey = env.AI_INTERNAL_API_KEY || 'dev-internal-key';\r\n\r\nconst prior = chain.priorResults || [];\r\nconst lines = prior.map(\r\n  (r, i) =>\r\n    `Шаг ${r.stepIndex}: ${r.label || r.toolName} — ${r.ok ? r.summary : 'ошибка: ' + (r.error || '')}`,\r\n);\r\n\r\nconst extra =\r\n  'Результаты выполненных инструментов:\\n' +\r\n  lines.join('\\n') +\r\n  '\\n\\nСформируй краткий ответ пользователю на основе этих результатов.';\r\n\r\nconst historyNode = $('Merge for Route').first().json.routeRequest?.messages || [];\r\n\r\nconst llm = await this.helpers.httpRequest({\r\n  method: 'POST',\r\n  url: `${aiBase}/internal/llm/complete`,\r\n  headers: { 'X-Ai-Internal-Key': aiKey, 'Content-Type': 'application/json' },\r\n  json: true,\r\n  body: {\r\n    messages: historyNode,\r\n    mcpContext: extra,\r\n    workspaceId: String(ctx.workspaceId),\r\n  },\r\n});\r\n\r\nreturn [\r\n  {\r\n    json: {\r\n      status: llm.status || 'completed',\r\n      reply: llm.reply || '',\r\n      runId: ctx.runId,\r\n      aiBase: ctx.aiBase,\r\n      aiKey: ctx.aiKey,\r\n    },\r\n  },\r\n];\r\n"
+      },
+      "id": "summarize-chain",
+      "name": "Summarize Chain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: { status: 'completed', reply: 'Шаг завершён (callback уже отправлен).' } }];"
+      },
+      "id": "done-in-tool-step",
+      "name": "Done In Tool Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Route Body').first().json.aiBase }}/internal/llm/complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ $('Prepare Route Body').first().json.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n        messages: $('Prepare Route Body').first().json.routeRequest.messages,\n        mcpContext: $('Prepare Route Body').first().json.routeRequest.knowledgeContext,\n        workspaceId: String($('Prepare Route Body').first().json.workspaceId)\n      }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "llm-chat",
+      "name": "LLM Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1860,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const row = $input.first().json;\nconst ctx = $('Parse Context').first().json;\nconst payload = row.status ? row : { status: row.status || 'completed', reply: row.reply || '' };\nreturn [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.aiKey } }];"
+      },
+      "id": "build-callback",
+      "name": "Build Callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.aiBase + '/internal/runs/' + $json.runId + '/complete' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ai-Internal-Key",
+              "value": "={{ $json.aiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $json.status, reply: $json.reply, pendingApprovalId: $json.pendingApprovalId, toolName: $json.toolName, connectorKey: $json.connectorKey }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "callback-ai-runtime",
+      "name": "Callback ai-runtime",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2680,
+        700
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Context": {
+      "main": [
+        [
+          {
+            "node": "IF HITL Resume?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF HITL Resume?": {
+      "main": [
+        [
+          {
+            "node": "Resume History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resume Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Installations",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Knowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume History": {
+      "main": [
+        [
+          {
+            "node": "Resume Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Pending": {
+      "main": [
+        [
+          {
+            "node": "Resume Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Resume Merge": {
+      "main": [
+        [
+          {
+            "node": "Resume Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Prepare": {
+      "main": [
+        [
+          {
+            "node": "Resume MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume MCP": {
+      "main": [
+        [
+          {
+            "node": "Resume Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load History": {
+      "main": [
+        [
+          {
+            "node": "Merge for Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Installations": {
+      "main": [
+        [
+          {
+            "node": "Merge for Route",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Load Knowledge": {
+      "main": [
+        [
+          {
+            "node": "Merge for Route",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge for Route": {
+      "main": [
+        [
+          {
+            "node": "Prepare Route Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Route Body": {
+      "main": [
+        [
+          {
+            "node": "LLM Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Route": {
+      "main": [
+        [
+          {
+            "node": "IF Tool Chain?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Tool Chain?": {
+      "main": [
+        [
+          {
+            "node": "Run Tool Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Tool Chain": {
+      "main": [
+        [
+          {
+            "node": "IF Completed In Step?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Completed In Step?": {
+      "main": [
+        [
+          {
+            "node": "Done In Tool Step",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Chain": {
+      "main": [
+        [
+          {
+            "node": "Build Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Chat": {
+      "main": [
+        [
+          {
+            "node": "Build Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback": {
+      "main": [
+        [
+          {
+            "node": "Callback ai-runtime",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "chat-orchestrator-v3-llm-router",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

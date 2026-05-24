@@ -81,7 +81,7 @@ for spec in "${SPECS[@]}"; do
 done
 
 prepare_n8n_baked_env() {
-  if [[ -n "$ONLY_REPO" && "$ONLY_REPO" != "platform" ]]; then
+  if [[ -n "$ONLY_REPO" && "$ONLY_REPO" != "platform" && "$ONLY_REPO" != "n8n" ]]; then
     return 0
   fi
   docker_dir="$PLATFORM_ROOT/docker/n8n"

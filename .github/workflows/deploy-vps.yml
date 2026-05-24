@@ -34,6 +34,7 @@ on:
           - mcp-notion
           - mcp-gateway
           - bff-gateway
+          - n8n
       image_tag:
         description: Override image tag (default = sha-contour)
         required: false
@@ -218,7 +219,7 @@ jobs:
           SERVICE_CHECKOUT_TOKEN: ${{ secrets.SECRET_SYNC_PAT }}
         run: |
           chmod +x scripts/checkout-services.sh
-          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+          if [[ "$DEPLOY_SCOPE" == "single" && "$SERVICE_REPO" != "n8n" ]]; then
             export CHECKOUT_ONLY_REPO="$SERVICE_REPO"
           fi
           ./scripts/checkout-services.sh
@@ -226,7 +227,9 @@ jobs:
       - name: Bake config into service build contexts
         run: |
           chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
-          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
+          if [[ "$DEPLOY_SCOPE" == "single" && "$SERVICE_REPO" == "n8n" ]]; then
+            ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "n8n"
+          elif [[ "$DEPLOY_SCOPE" == "single" ]]; then
             ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "$SERVICE_REPO"
           else
             ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR"
