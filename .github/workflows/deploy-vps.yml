@@ -34,7 +34,6 @@ on:
           - mcp-notion
           - mcp-gateway
           - bff-gateway
-          - n8n
       image_tag:
         description: Override image tag (default = sha-contour)
         required: false
@@ -48,8 +47,11 @@ on:
       - "docker-compose.bake.yml"
       - "deploy/**"
       - "docker/**"
-      - "n8n/**"
       - "config/**"
+    paths-ignore:
+      - "docker/n8n/**"
+      - "n8n/**"
+      - "config/bake/fragments/n8n.env"
       - "scripts/**"
       - ".github/workflows/deploy-vps.yml"
   repository_dispatch:
@@ -219,7 +221,7 @@ jobs:
           SERVICE_CHECKOUT_TOKEN: ${{ secrets.SECRET_SYNC_PAT }}
         run: |
           chmod +x scripts/checkout-services.sh
-          if [[ "$DEPLOY_SCOPE" == "single" && "$SERVICE_REPO" != "n8n" ]]; then
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
             export CHECKOUT_ONLY_REPO="$SERVICE_REPO"
           fi
           ./scripts/checkout-services.sh
@@ -227,9 +229,7 @@ jobs:
       - name: Bake config into service build contexts
         run: |
           chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
-          if [[ "$DEPLOY_SCOPE" == "single" && "$SERVICE_REPO" == "n8n" ]]; then
-            ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "n8n"
-          elif [[ "$DEPLOY_SCOPE" == "single" ]]; then
+          if [[ "$DEPLOY_SCOPE" == "single" ]]; then
             ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "$SERVICE_REPO"
           else
             ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR"
@@ -248,19 +248,23 @@ jobs:
         env:
           DOCKER_BUILDKIT: "1"
         run: |
+          chmod +x scripts/deploy-catalog.sh
+          # n8n — отдельный workflow deploy-n8n.yml
+          mapfile -t stack_services < <(deploy_catalog_all_compose_services | grep -vx n8n)
           if [[ "$DEPLOY_SCOPE" == "single" ]]; then
             docker compose -f docker-compose.bake.yml build "$BAKE_SERVICE"
           else
-            docker compose -f docker-compose.bake.yml build
+            docker compose -f docker-compose.bake.yml build "${stack_services[@]}"
           fi
 
       - name: Push images to GHCR
         run: |
-          chmod +x scripts/push-baked-images.sh
+          chmod +x scripts/push-baked-images.sh scripts/deploy-catalog.sh
+          mapfile -t stack_services < <(deploy_catalog_all_compose_services | grep -vx n8n)
           if [[ "$DEPLOY_SCOPE" == "single" ]]; then
             ./scripts/push-baked-images.sh "$BAKE_SERVICE"
           else
-            ./scripts/push-baked-images.sh
+            ./scripts/push-baked-images.sh "${stack_services[@]}"
           fi
 
   deploy:

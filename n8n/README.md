@@ -4,7 +4,9 @@ Self-hosted оркестратор чата (образ **≥ 1.121.0**).
 
 ## VPS (test / prod)
 
-Входит в полный bake/deploy: образ `ghcr.io/<owner>/n8n:<sha>-test|prod` ([`docker/n8n/Dockerfile`](../docker/n8n/Dockerfile)).
+**Отдельный CI:** [`.github/workflows/deploy-n8n.yml`](../.github/workflows/deploy-n8n.yml) — push в `n8n/**`, `docker/n8n/**` или **Actions → Deploy n8n to VPS**.
+
+Образ `ghcr.io/<owner>/n8n:<sha>-test|prod` ([`docker/n8n/Dockerfile`](../docker/n8n/Dockerfile)). Полный **Deploy to VPS** n8n **не** собирает (только BC-стек).
 
 Workflow из `n8n/workflows/*.json` импортируются при **первом** старте volume (`n8n import:workflow`). После деплоя проверьте в UI, что оба workflow **Active**.
 

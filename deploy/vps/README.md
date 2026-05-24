@@ -13,8 +13,9 @@
 
 ### n8n (оркестратор чата)
 
+- **Workflow:** [`.github/workflows/deploy-n8n.yml`](../../.github/workflows/deploy-n8n.yml) — отдельно от **Deploy to VPS** (push `n8n/**`, `docker/n8n/**` или ручной dispatch).
 - Образ **`ghcr.io/<owner>/n8n:<sha>-<contour>`** — baked в CI (`docker/n8n/Dockerfile`), workflow внутри образа (`n8n import:workflow` при первом старте).
-- `ai-runtime` на VPS: `AI_ORCHESTRATOR=n8n` (фрагмент `config/bake/fragments/ai.env`).
+- `ai-runtime` на VPS: `AI_ORCHESTRATOR=n8n` (фрагмент `config/bake/fragments/ai.env`) — пересборка через **Deploy to VPS** → `ai-runtime` или флаг **redeploy_ai** в deploy-n8n.
 - Секрет **`AI_INTERNAL_API_KEY`** — в GitHub Environment **test** / **prod** (как остальные internal keys).
 - UI n8n: test `http://<vps>:15678`, prod `http://<vps>:5678` (или только внутренняя сеть `http://n8n:5678`).
 
@@ -79,7 +80,9 @@ Merge в микросервис → **single** (один образ). Push в **
 | **Merge / push в `test`** в любом микросервисе | **test** |
 | **Merge / push в `main`** в любом микросервисе | **prod** |
 | Push в **`platform`** (`test` / `main`, paths deploy/config) | test / prod |
-| **Actions → Deploy to VPS** (ручной) | выбор |
+| Push **`n8n/**`**, **`docker/n8n/**`** | **Deploy n8n to VPS** → test / prod |
+| **Actions → Deploy to VPS** (ручной) | выбор BC-стека |
+| **Actions → Deploy n8n to VPS** (ручной) | только n8n (+ опц. ai) |
 
 Микросервисы: [`.github/workflows/trigger-deploy.yml`](../../templates/service-trigger-deploy.yml) → reusable `deploy-vps` в platform (секрет PAT не нужен).
 

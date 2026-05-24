@@ -1,0 +1,207 @@
+name: Deploy n8n to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      contour:
+        description: Deploy contour (test = staging VPS, prod = production)
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - prod
+      image_tag:
+        description: Override image tag (default = sha-contour)
+        required: false
+      skip_deploy:
+        description: Build and push only (skip SSH deploy)
+        type: boolean
+        default: false
+      redeploy_ai:
+        description: Also restart ai-runtime (after ai.env / orchestrator changes)
+        type: boolean
+        default: false
+  push:
+    branches: [main, test]
+    paths:
+      - "n8n/**"
+      - "docker/n8n/**"
+      - "config/bake/fragments/n8n.env"
+      - ".github/workflows/deploy-n8n.yml"
+  repository_dispatch:
+    types: [deploy-n8n]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PLATFORM_REPO: ${{ github.repository_owner }}/platform
+  PLATFORM_REF: ${{ github.ref }}
+  BAKE_SERVICE: n8n
+  VPS_COMPOSE_SERVICE: n8n
+
+concurrency:
+  group: deploy-n8n-${{ inputs.contour || github.event.client_payload.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      contour: ${{ steps.meta.outputs.contour }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      redeploy_ai: ${{ steps.meta.outputs.redeploy_ai }}
+    steps:
+      - id: meta
+        run: |
+          set -euo pipefail
+          contour=""
+          tag=""
+          redeploy_ai="${{ github.event.inputs.redeploy_ai || 'false' }}"
+
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            contour="${{ github.event.client_payload.contour }}"
+            tag="${{ github.event.client_payload.sha }}-${contour}"
+            if [[ -n "${{ github.event.client_payload.redeploy_ai }}" ]]; then
+              redeploy_ai="${{ github.event.client_payload.redeploy_ai }}"
+            fi
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            contour="${{ github.event.inputs.contour }}"
+            tag="${{ github.sha }}-${contour}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            contour="prod"
+            tag="${{ github.sha }}-prod"
+          else
+            contour="test"
+            tag="${{ github.sha }}-test"
+          fi
+
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            tag="${{ github.event.inputs.image_tag }}"
+          fi
+
+          {
+            echo "contour=$contour"
+            echo "image_tag=$tag"
+            echo "redeploy_ai=$redeploy_ai"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Deploy n8n contour=$contour tag=$tag redeploy_ai=$redeploy_ai"
+
+  build-and-push:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ needs.resolve.outputs.contour }}
+    env:
+      DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      IMAGE_REGISTRY: ghcr.io
+      IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+      IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+      CONFIG_INTERNAL_API_KEY: ${{ secrets.CONFIG_INTERNAL_API_KEY }}
+      POLICY_INTERNAL_API_KEY: ${{ secrets.POLICY_INTERNAL_API_KEY }}
+      SECRETS_INTERNAL_API_KEY: ${{ secrets.SECRETS_INTERNAL_API_KEY }}
+      AUDIT_INTERNAL_API_KEY: ${{ secrets.AUDIT_INTERNAL_API_KEY }}
+      MCP_INTERNAL_API_KEY: ${{ secrets.MCP_INTERNAL_API_KEY }}
+      AI_INTERNAL_API_KEY: ${{ secrets.AI_INTERNAL_API_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'stub' }}
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ env.PLATFORM_REF }}
+
+      - name: Bake n8n config
+        run: |
+          chmod +x scripts/prepare-baked-build.sh scripts/fetch-build-secrets.sh
+          ./scripts/prepare-baked-build.sh "$DEPLOY_CONTOUR" "n8n"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build n8n image
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker compose -f docker-compose.bake.yml build "$BAKE_SERVICE"
+
+      - name: Push n8n image to GHCR
+        run: |
+          chmod +x scripts/push-baked-images.sh
+          ./scripts/push-baked-images.sh "$BAKE_SERVICE"
+
+  deploy:
+    needs: [resolve, build-and-push]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_deploy != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    environment: ${{ needs.resolve.outputs.contour }}
+    env:
+      DEPLOY_CONTOUR: ${{ needs.resolve.outputs.contour }}
+      IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+      IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
+      REDEPLOY_AI: ${{ needs.resolve.outputs.redeploy_ai }}
+      VPS_DEPLOY_DIR: /opt/couragegang-${{ needs.resolve.outputs.contour }}
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ env.PLATFORM_REF }}
+
+      - name: Sync compose files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: deploy/vps/*
+          target: ${{ env.VPS_DEPLOY_DIR }}/
+          strip_components: 2
+          overwrite: true
+
+      - name: Pull and restart n8n on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          DEPLOY_CONTOUR: ${{ env.DEPLOY_CONTOUR }}
+          REDEPLOY_AI: ${{ env.REDEPLOY_AI }}
+          VPS_DEPLOY_DIR: ${{ env.VPS_DEPLOY_DIR }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          envs: IMAGE_TAG,IMAGE_OWNER,DEPLOY_CONTOUR,REDEPLOY_AI,VPS_DEPLOY_DIR
+          script: |
+            set -e
+            mkdir -p "$VPS_DEPLOY_DIR"
+            cd "$VPS_DEPLOY_DIR"
+            if [[ ! -f docker-compose.yml || ! -f up.sh ]]; then
+              echo "deploy files missing in $VPS_DEPLOY_DIR" >&2
+              exit 1
+            fi
+            sed -i 's/\r$//' up.sh docker-compose.yml docker-compose.ports-prod.yml docker-compose.ports-test.yml 2>/dev/null || true
+            chmod +x up.sh
+            unset COMPOSE_FILE
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+            export IMAGE_TAG IMAGE_OWNER DEPLOY_CONTOUR
+            bash ./up.sh "${IMAGE_TAG}" n8n
+            if [[ "$REDEPLOY_AI" == "true" ]]; then
+              bash ./up.sh "${IMAGE_TAG}" ai
+            fi
