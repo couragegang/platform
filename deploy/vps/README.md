@@ -101,6 +101,18 @@ bash ./up.sh abc123def-test
 
 Если ошибка `stat ... docker-compose.yml docker-compose.ports-test.yml` — на сервере **старый** `up.sh` или в shell задан `COMPOSE_FILE` с пробелом. Обновите `up.sh` из репозитория и выполните `unset COMPOSE_FILE`.
 
+### `database "ai" does not exist` (старый Postgres volume)
+
+`init-db` отрабатывает только при **первом** создании volume. На уже поднятом test/prod Postgres выполните один раз:
+
+```bash
+cd /opt/couragegang-test
+export DEPLOY_CONTOUR=test
+chmod +x ensure-databases.sh
+./ensure-databases.sh
+./up.sh test-latest ai
+```
+
 ### `address already in use` на 8080 (test)
 
 Симптом: deploy test падает на `iam`, в `docker ps` у test-сервисов видны **и** `808x`, **и** `1808x` (например `8081` и `18081` у mcp). Причина — старый compose с `ports` в базе + оверлей test.

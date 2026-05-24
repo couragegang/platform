@@ -91,6 +91,15 @@ echo "$GHCR_PAT" | docker login ghcr.io -u couragegang --password-stdin
 
 `up.sh` для `DEPLOY_CONTOUR=test` автоматически подключает **ports-test** (18080+).
 
+Если `ai-runtime` в цикле **Restarting** и в логах `database "ai" does not exist`:
+
+```bash
+cd /opt/couragegang-test
+export DEPLOY_CONTOUR=test
+./ensure-databases.sh
+./up.sh test-latest ai
+```
+
 Проверка на VPS:
 
 ```bash
