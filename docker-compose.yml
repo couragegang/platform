@@ -134,6 +134,19 @@ services:
       config:
         condition: service_started
 
+  mcp-notion:
+    <<: *runtime-env
+    build:
+      context: ../services/mcp-notion
+      dockerfile: Dockerfile
+      target: local
+      args:
+        <<: *build-args
+    ports:
+      - "8091:8091"
+    environment:
+      MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
+
   mcp:
     <<: *runtime-env
     build:
@@ -156,6 +169,7 @@ services:
       AUDIT_SERVICE_ENABLED: "true"
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
+      MCP_NOTION_RUNTIME_URL: http://mcp-notion:8091/v1/notion
     depends_on:
       postgres:
         condition: service_healthy
@@ -164,6 +178,8 @@ services:
       secrets:
         condition: service_started
       audit:
+        condition: service_started
+      mcp-notion:
         condition: service_started
 
   knowledge:
