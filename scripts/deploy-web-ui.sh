@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Сборка web-ui и выкладка static на VPS (rsync).
+# CI: merge в test/main → couragegang/web-ui trigger-deploy → platform deploy-web-ui.yml
 # Usage: ./deploy-web-ui.sh prod|test [user@host]
 set -euo pipefail
 

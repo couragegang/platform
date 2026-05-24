@@ -34,7 +34,9 @@
 merge → test (любой BC)  ──►  platform: deploy-vps  ──►  VPS test
 merge → main (любой BC)  ──►  platform: deploy-vps  ──►  VPS prod
 
-merge → test/main (platform, paths deploy/config)  ──►  тот же workflow
+merge → test/main (web-ui)  ──►  platform: deploy-web-ui  ──►  rsync SPA на VPS
+
+merge → test/main (platform, paths deploy/config)  ──►  deploy-vps (full stack)
 ```
 
 ### Режимы деплоя
@@ -57,6 +59,23 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 ### 2. Workflow в сервисах
 
 Файл **`.github/workflows/trigger-deploy.yml`** (шаблон: [`templates/service-trigger-deploy.yml`](../templates/service-trigger-deploy.yml)).
+
+### 2.1. Репозиторий `web-ui`
+
+Отдельный репозиторий **`couragegang/web-ui`** (не Docker, static SPA):
+
+| Workflow | Шаблон | Деплой |
+|----------|--------|--------|
+| `trigger-deploy.yml` | [`templates/web-ui-trigger-deploy.yml`](../templates/web-ui-trigger-deploy.yml) | `deploy-web-ui.yml` → rsync `/var/www/ai-test.valoriel.ru` или `ai.valoriel.ru` |
+| `ci.yml` | в репозитории web-ui | lint + `npm run build` на PR |
+
+Первичная настройка:
+
+1. Создать **`couragegang/web-ui`** (private/public), ветки **`test`** и **`main`** (protected как у BC).
+2. Push кода + workflows из локальной папки `web-ui/`.
+3. Merge **`deploy-web-ui.yml`** в **`platform`** (`test`, затем PR → `main`).
+4. В **platform → Actions → Access** разрешить вызов workflows для **`web-ui`** (как для BC).
+5. Убедиться, что на VPS созданы каталоги static и nginx vhost (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 
 ### 3. Автотесты (pytest + unit) и merge gate
 
