@@ -46,12 +46,8 @@ on:
     paths:
       - "docker-compose.bake.yml"
       - "deploy/**"
-      - "docker/**"
+      - "docker/postgres/**"
       - "config/**"
-    paths-ignore:
-      - "docker/n8n/**"
-      - "n8n/**"
-      - "config/bake/fragments/n8n.env"
       - "scripts/**"
       - ".github/workflows/deploy-vps.yml"
   repository_dispatch:
