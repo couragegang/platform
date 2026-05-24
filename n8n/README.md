@@ -12,7 +12,7 @@ Workflow из `n8n/workflows/*.json` импортируются при **пер�
 
 Порты: test **15678**, prod **5678** (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 
-**UI через nginx (test):** `https://ai-test.valoriel.ru/n8n/` — location в [`deploy/vps/nginx-ai-test.valoriel.ru.server.conf`](../deploy/vps/nginx-ai-test.valoriel.ru.server.conf); в baked env при `VPS_PUBLIC_BASE_URL` задаются `N8N_PATH=/n8n/`, `N8N_EDITOR_BASE_URL`, `WEBHOOK_URL`. Внутренние вызовы `ai-runtime` → `http://n8n:5678/webhook/...` не меняются.
+**UI через nginx (test):** `https://ai-test.valoriel.ru/n8n/` — location в [`deploy/vps/nginx-ai-test.valoriel.ru.server.conf`](../deploy/vps/nginx-ai-test.valoriel.ru.server.conf); baked env по контуру (`ai-test.valoriel.ru`, не `VPS_PUBLIC_BASE_URL`).
 
 ## Почему два workflow (оба нужно импортировать)
 

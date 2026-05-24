@@ -98,14 +98,27 @@ prepare_n8n_baked_env() {
   echo "runtime-baked.env" >"$docker_dir/.gitignore"
   chmod +x "$docker_dir/entrypoint.sh"
 
+  # UI n8n — на SPA-домене (/n8n), не на VPS_PUBLIC_BASE_URL (часто API/OIDC другой host).
+  n8n_ui_base() {
+    if [[ -n "${N8N_PUBLIC_BASE_URL:-}" ]]; then
+      echo "${N8N_PUBLIC_BASE_URL%/}"
+      return
+    fi
+    case "$CONTOUR" in
+      test) echo "https://ai-test.valoriel.ru" ;;
+      prod) echo "https://ai.valoriel.ru" ;;
+    esac
+  }
+
   out="$docker_dir/runtime-baked.env"
   {
     echo "DEPLOY_CONTOUR=$CONTOUR"
     cat "$PLATFORM_ROOT/config/bake/fragments/n8n.env"
-    if [[ -n "$PUBLIC_BASE" ]]; then
+    n8n_base="$(n8n_ui_base)"
+    if [[ -n "$n8n_base" ]]; then
       echo "N8N_PATH=/n8n/"
-      echo "N8N_EDITOR_BASE_URL=${PUBLIC_BASE}/n8n/"
-      echo "WEBHOOK_URL=${PUBLIC_BASE}/n8n/"
+      echo "N8N_EDITOR_BASE_URL=${n8n_base}/n8n/"
+      echo "WEBHOOK_URL=${n8n_base}/n8n/"
       echo "N8N_PROTOCOL=https"
       echo "N8N_PROXY_HOPS=1"
     fi

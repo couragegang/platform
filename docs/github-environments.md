@@ -51,7 +51,8 @@
 | Variable | test (пример) | prod (пример) |
 |----------|---------------|---------------|
 | `LLM_PROVIDER` | `stub` | `deepseek` |
-| `VPS_PUBLIC_BASE_URL` | `https://test-api.example.com` | `https://api.example.com` |
+| `VPS_PUBLIC_BASE_URL` | `https://ai-test.valoriel.ru` (OIDC/API) | `https://ai.valoriel.ru` |
+| `N8N_PUBLIC_BASE_URL` | *(опционально)* override UI n8n; по умолчанию bake: `https://ai-test.valoriel.ru` / `https://ai.valoriel.ru` | то же |
 | `IMAGE_OWNER` | `couragegang` | `couragegang` |
 | `GRAFANA_ROOT_URL` | `http://<vps>:3000` | то же (одна Grafana на хост) |
 | `GRAFANA_HOST_PORT` | `3000` | `3000` |
