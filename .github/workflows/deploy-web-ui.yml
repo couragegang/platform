@@ -1,0 +1,133 @@
+name: Deploy web-ui to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      contour:
+        description: Deploy contour (test = staging, prod = production)
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - prod
+      sha:
+        description: web-ui commit SHA (default = tip of test/main for contour)
+        required: false
+  workflow_call:
+    inputs:
+      contour:
+        description: Deploy contour (test or prod)
+        required: true
+        type: string
+      sha:
+        description: Git commit SHA in couragegang/web-ui
+        required: true
+        type: string
+      trigger_repository:
+        description: owner/repo that triggered deploy (logging)
+        required: false
+        type: string
+    secrets:
+      CALLER_ACCESS_TOKEN:
+        description: GITHUB_TOKEN from web-ui (read private repo checkout)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web-ui-${{ inputs.contour || github.event.inputs.contour || 'test' }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      contour: ${{ steps.meta.outputs.contour }}
+      sha: ${{ steps.meta.outputs.sha }}
+      remote_dir: ${{ steps.meta.outputs.remote_dir }}
+      trigger_repo: ${{ steps.meta.outputs.trigger_repo }}
+    steps:
+      - id: meta
+        run: |
+          set -euo pipefail
+          contour="${{ inputs.contour || github.event.inputs.contour || 'test' }}"
+          if [[ -n "${{ inputs.sha }}" ]]; then
+            sha="${{ inputs.sha }}"
+          elif [[ -n "${{ github.event.inputs.sha }}" ]]; then
+            sha="${{ github.event.inputs.sha }}"
+          elif [[ "$contour" == "prod" ]]; then
+            sha="main"
+          else
+            sha="test"
+          fi
+          trigger_repo="${{ inputs.trigger_repository || '' }}"
+
+          case "$contour" in
+            prod) remote_dir="/var/www/ai.valoriel.ru" ;;
+            test) remote_dir="/var/www/ai-test.valoriel.ru" ;;
+            *)
+              echo "Invalid contour: $contour" >&2
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "contour=$contour"
+            echo "sha=$sha"
+            echo "remote_dir=$remote_dir"
+            echo "trigger_repo=$trigger_repo"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Deploy web-ui contour=$contour sha=$sha → $remote_dir (from ${trigger_repo:-manual})"
+
+  build-and-deploy:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ needs.resolve.outputs.contour }}
+    env:
+      REMOTE_DIR: ${{ needs.resolve.outputs.remote_dir }}
+      WEB_UI_SHA: ${{ needs.resolve.outputs.sha }}
+      WEB_UI_REPO: ${{ github.repository_owner }}/web-ui
+    steps:
+      - name: Checkout web-ui
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.WEB_UI_REPO }}
+          ref: ${{ env.WEB_UI_SHA }}
+          token: ${{ secrets.CALLER_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Build SPA
+        run: |
+          npm ci
+          npm run build
+          test -f dist/index.html
+
+      - name: Rsync static to VPS
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SSH_KEY:-}" || -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
+            echo "Set VPS_HOST, VPS_USER, VPS_SSH_KEY in GitHub Environment '${{ needs.resolve.outputs.contour }}'" >&2
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          PORT="${VPS_SSH_PORT:-22}"
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${PORT} -o StrictHostKeyChecking=no" \
+            dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/"
+          echo "Deployed web-ui ${WEB_UI_SHA} → ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}"

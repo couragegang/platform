@@ -74,10 +74,10 @@ permissions:
   contents: read
   packages: write
 
-# workflow_call from a BC checks out the caller repo by default; deploy needs platform/.
+# workflow_call from a BC: checkout platform at test/main (not caller repo). split() is invalid in workflow env.
 env:
   PLATFORM_REPO: ${{ github.repository_owner }}/platform
-  PLATFORM_REF: ${{ contains(github.workflow_ref, '@') && split(github.workflow_ref, '@')[1] || github.ref }}
+  PLATFORM_REF: ${{ github.event_name == 'workflow_call' && (inputs.contour == 'prod' && 'refs/heads/main' || 'refs/heads/test') || github.ref }}
 
 concurrency:
   group: deploy-vps-${{ inputs.contour || github.event.client_payload.contour || github.event.inputs.contour || (github.ref == 'refs/heads/main' && 'prod') || 'test' }}-${{ github.event_name == 'workflow_call' && 'single' || github.event.client_payload.scope || github.event.inputs.deploy_scope || (github.event_name == 'repository_dispatch' && 'single') || 'all' }}-${{ inputs.service_repo || github.event.client_payload.repository || github.event.inputs.service_repo || 'platform' }}

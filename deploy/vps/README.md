@@ -163,7 +163,16 @@ curl -sS https://ai.valoriel.ru/         # SPA index.html
 | `/v1/iam/*` | IAM напрямую (OIDC **callback** с Google/GitHub) |
 | `/health` | BFF health |
 
-**Деплой фронта:**
+**Деплой фронта (CI, как BC):**
+
+```text
+merge → test (web-ui)  ──►  platform: deploy-web-ui  ──►  rsync → /var/www/ai-test.valoriel.ru
+merge → main (web-ui)  ──►  platform: deploy-web-ui  ──►  rsync → /var/www/ai.valoriel.ru
+```
+
+Репозиторий **`couragegang/web-ui`**: `.github/workflows/trigger-deploy.yml` → reusable **`platform/.github/workflows/deploy-web-ui.yml`**. Секреты VPS — те же GitHub Environments **`test`** / **`prod`**, что у `deploy-vps`.
+
+Ручной fallback:
 
 ```bash
 sudo mkdir -p /var/www/ai.valoriel.ru
@@ -172,6 +181,8 @@ cd web-ui && npm ci && npm run build
 rsync -avz --delete dist/ user@vps:/var/www/ai.valoriel.ru/
 # или: platform/scripts/deploy-web-ui.sh prod user@vps
 ```
+
+Actions → **Deploy web-ui to VPS** в `platform` (dispatch, contour test|prod).
 
 Обновить nginx: [`nginx-ai.valoriel.ru.server.conf`](nginx-ai.valoriel.ru.server.conf) → `sites-available`, `nginx -t && reload`.
 

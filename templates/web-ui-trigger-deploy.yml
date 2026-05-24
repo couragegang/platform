@@ -1,0 +1,34 @@
+# Скопировать в web-ui: .github/workflows/trigger-deploy.yml
+# Требование: couragegang/platform → Settings → Actions → Access для org.
+# Ref в uses: только статические @test / @main.
+
+name: Trigger platform deploy
+
+on:
+  push:
+    branches: [main, test]
+
+jobs:
+  deploy-test:
+    if: github.ref == 'refs/heads/test'
+    permissions:
+      contents: read
+    uses: couragegang/platform/.github/workflows/deploy-web-ui.yml@test
+    with:
+      contour: test
+      sha: ${{ github.sha }}
+      trigger_repository: ${{ github.repository }}
+    secrets:
+      CALLER_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: couragegang/platform/.github/workflows/deploy-web-ui.yml@main
+    with:
+      contour: prod
+      sha: ${{ github.sha }}
+      trigger_repository: ${{ github.repository }}
+    secrets:
+      CALLER_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}

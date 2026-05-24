@@ -8,6 +8,16 @@
 | **`main`** | Production | да | VPS **prod** (`/opt/couragegang-prod`) |
 | **`feature/*`** | Разработка | нет | деплой не запускается |
 
+### Репозиторий `platform` (отдельное правило)
+
+В **`couragegang/platform`** ветки **`test`** и **`main`** — **разные линии истории**, как в BC:
+
+- Повседневная работа и push — только в **`test`** (или feature → PR в `test`).
+- **`main`** обновляется **только** через MR/PR **`test` → `main`** после проверки на staging (E2E regress, деплой test).
+- **Не** делать локальный `merge test` + `push origin main` и **не** дублировать каждый коммит с `test` в `main` автоматически (ни в скриптах, ни агентом).
+
+Микросервисы по-прежнему: merge в `test` → staging deploy; merge в `main` → prod deploy (`trigger-deploy.yml`).
+
 ## Поток разработчика
 
 1. Ветвление от **`test`**: `git checkout test && git pull && git checkout -b feature/ABC-123`.
@@ -24,7 +34,9 @@
 merge → test (любой BC)  ──►  platform: deploy-vps  ──►  VPS test
 merge → main (любой BC)  ──►  platform: deploy-vps  ──►  VPS prod
 
-merge → test/main (platform, paths deploy/config)  ──►  тот же workflow
+merge → test/main (web-ui)  ──►  platform: deploy-web-ui  ──►  rsync SPA на VPS
+
+merge → test/main (platform, paths deploy/config)  ──►  deploy-vps (full stack)
 ```
 
 ### Режимы деплоя
@@ -47,6 +59,24 @@ merge → test/main (platform, paths deploy/config)  ──►  тот же work
 ### 2. Workflow в сервисах
 
 Файл **`.github/workflows/trigger-deploy.yml`** (шаблон: [`templates/service-trigger-deploy.yml`](../templates/service-trigger-deploy.yml)).
+
+### 2.1. Репозиторий `web-ui`
+
+Отдельный репозиторий **`couragegang/web-ui`** (не Docker, static SPA):
+
+| Workflow | Шаблон | Деплой |
+|----------|--------|--------|
+| `trigger-deploy.yml` | [`templates/web-ui-trigger-deploy.yml`](../templates/web-ui-trigger-deploy.yml) | `workflow_call` → **`deploy-web-ui.yml`** (VPS secrets в platform Environment) |
+| `ci.yml` | в репозитории web-ui | lint + `npm run build` на PR |
+
+Первичная настройка:
+
+1. Создать **`couragegang/web-ui`** (private/public), ветки **`test`** и **`main`** (protected как у BC).
+2. Push кода + workflows из локальной папки `web-ui/`.
+3. Merge **`deploy-web-ui.yml`** в **`platform`** (`test`, затем PR → `main`).
+4. В **platform → Actions → Access** разрешить вызов workflows для **`web-ui`** (как для BC).
+5. Private **web-ui**: checkout в `deploy-web-ui.yml` через secret **`CALLER_ACCESS_TOKEN`** (= `GITHUB_TOKEN` caller из `trigger-deploy.yml`).
+6. Убедиться, что на VPS созданы каталоги static и nginx vhost (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 
 ### 3. Автотесты (pytest + unit) и merge gate
 
