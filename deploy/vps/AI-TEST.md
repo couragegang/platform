@@ -194,6 +194,8 @@ test  →  PR в main  →  деплой ai.valoriel.ru (prod)
 | Симптом | Причина |
 |---------|---------|
 | 502 на `/api/*` | Docker test не поднят или не `18082` |
+| 404 на `/api/organizations/*` | Старый образ **bff-gateway** — передеплой `bff` (ветка `test`) |
+| 500 workspaces «URI with undefined scheme» | В baked BFF нет `CONFIG_BASE_URL` — пересобрать **bff** после обновления `platform/config/bake/static.env` |
 | 502 на `/` | Пустой `/var/www/ai-test.valoriel.ru` — задеплойте `dist/` |
 | rsync **Permission denied** | `chown` static-каталога на **`VPS_USER`** (см. §2): `sudo chown -R VPS_USER:www-data /var/www/ai-test.valoriel.ru` |
 | SSL error | Путь к `ai-test.valoriel.ru_le1.crtca` в nginx |
