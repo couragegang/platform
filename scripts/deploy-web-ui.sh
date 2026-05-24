@@ -50,6 +50,6 @@ else
   DIST_DIR="$UI_ROOT/dist"
 fi
 
-rsync -avz --delete "$DIST_DIR/" "${SSH_TARGET}:${REMOTE_DIR}/"
+rsync -avz --delete --no-times --omit-dir-times "$DIST_DIR/" "${SSH_TARGET}:${REMOTE_DIR}/"
 
 echo "Deployed SPA → ${SSH_TARGET}:${REMOTE_DIR} (contour=$CONTOUR)"
