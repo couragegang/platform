@@ -5,7 +5,10 @@ set -euo pipefail
 CONTOUR="${1:-prod}"
 ONLY_REPO="${2:-}"
 PLATFORM_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SERVICES_ROOT="$(cd "$PLATFORM_ROOT/../services" && pwd)"
+SERVICES_ROOT="${SERVICES_ROOT:-$PLATFORM_ROOT/../services}"
+if [[ -d "$SERVICES_ROOT" ]]; then
+  SERVICES_ROOT="$(cd "$SERVICES_ROOT" && pwd)"
+fi
 SECRETS_ENV="$PLATFORM_ROOT/build/runtime-secrets.env"
 ENTRYPOINT_SRC="$PLATFORM_ROOT/docker/entrypoint-baked.sh"
 
