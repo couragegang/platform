@@ -1,6 +1,8 @@
 name: Deploy web-ui to VPS
 
 on:
+  repository_dispatch:
+    types: [deploy-ui]
   workflow_dispatch:
     inputs:
       contour:
@@ -49,7 +51,11 @@ jobs:
         run: |
           set -euo pipefail
           contour="${{ inputs.contour || github.event.inputs.contour || 'test' }}"
-          if [[ -n "${{ inputs.sha }}" ]]; then
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            contour="${{ github.event.client_payload.contour }}"
+            sha="${{ github.event.client_payload.sha }}"
+            trigger_repo="${{ github.event.client_payload.trigger_repository }}"
+          elif [[ -n "${{ inputs.sha }}" ]]; then
             sha="${{ inputs.sha }}"
           elif [[ -n "${{ github.event.inputs.sha }}" ]]; then
             sha="${{ github.event.inputs.sha }}"
@@ -58,7 +64,9 @@ jobs:
           else
             sha="test"
           fi
-          trigger_repo="${{ inputs.trigger_repository || '' }}"
+          if [[ -z "${trigger_repo:-}" ]]; then
+            trigger_repo="${{ inputs.trigger_repository || '' }}"
+          fi
 
           case "$contour" in
             prod) remote_dir="/var/www/ai.valoriel.ru" ;;
