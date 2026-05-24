@@ -90,7 +90,8 @@ jobs:
     needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: ${{ needs.resolve.outputs.contour }}
+    # Без environment: при workflow_call из ui/BC иначе VPS_* пустые (только Environment secrets).
+    # VPS_* берём из Repository secrets platform (sync-vps-repo-secrets.yml).
     env:
       REMOTE_DIR: ${{ needs.resolve.outputs.remote_dir }}
       WEB_UI_SHA: ${{ needs.resolve.outputs.sha }}
@@ -127,7 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${VPS_SSH_KEY:-}" || -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
-            echo "Set VPS_HOST, VPS_USER, VPS_SSH_KEY in platform Environment '${{ needs.resolve.outputs.contour }}'" >&2
+            echo "Set VPS_HOST, VPS_USER, VPS_SSH_KEY in platform Repository secrets (Actions → Secrets)" >&2
             exit 1
           fi
           install -m 700 -d ~/.ssh
