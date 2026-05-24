@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Сборка web-ui и выкладка static на VPS (rsync).
-# CI: merge в test/main → couragegang/web-ui trigger-deploy → platform deploy-web-ui.yml
+# Сборка SPA (pnpm monorepo ui/) и выкладка static на VPS (rsync).
+# CI: push couragegang/ui test/main → trigger-deploy → platform deploy-web-ui.yml
 # Usage: ./deploy-web-ui.sh prod|test [user@host]
 set -euo pipefail
 
@@ -9,12 +9,14 @@ SSH_TARGET="${2:-}"
 
 PLATFORM_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
-if [[ -d "$WORKSPACE_ROOT/ui/web-ui" ]]; then
-  WEB_UI_ROOT="$(cd "$WORKSPACE_ROOT/ui/web-ui" && pwd)"
+if [[ -f "$WORKSPACE_ROOT/ui/pnpm-workspace.yaml" ]]; then
+  UI_ROOT="$(cd "$WORKSPACE_ROOT/ui" && pwd)"
+elif [[ -d "$WORKSPACE_ROOT/ui/web-ui" ]]; then
+  UI_ROOT="$(cd "$WORKSPACE_ROOT/ui/web-ui" && pwd)"
 elif [[ -d "$WORKSPACE_ROOT/web-ui" ]]; then
-  WEB_UI_ROOT="$(cd "$WORKSPACE_ROOT/web-ui" && pwd)"
+  UI_ROOT="$(cd "$WORKSPACE_ROOT/web-ui" && pwd)"
 else
-  echo "UI not found: expected $WORKSPACE_ROOT/ui/web-ui" >&2
+  echo "UI not found: expected $WORKSPACE_ROOT/ui (monorepo) or legacy web-ui/" >&2
   exit 1
 fi
 
@@ -36,10 +38,18 @@ if [[ -z "$SSH_TARGET" ]]; then
   exit 1
 fi
 
-cd "$WEB_UI_ROOT"
-npm ci
-npm run build
+if [[ -f "$UI_ROOT/pnpm-workspace.yaml" ]]; then
+  cd "$UI_ROOT"
+  pnpm install --frozen-lockfile
+  pnpm --filter @couragegang/web build
+  DIST_DIR="$UI_ROOT/apps/web/dist"
+else
+  cd "$UI_ROOT"
+  npm ci
+  npm run build
+  DIST_DIR="$UI_ROOT/dist"
+fi
 
-rsync -avz --delete "$WEB_UI_ROOT/dist/" "${SSH_TARGET}:${REMOTE_DIR}/"
+rsync -avz --delete "$DIST_DIR/" "${SSH_TARGET}:${REMOTE_DIR}/"
 
-echo "Deployed web-ui → ${SSH_TARGET}:${REMOTE_DIR} (contour=$CONTOUR)"
+echo "Deployed SPA → ${SSH_TARGET}:${REMOTE_DIR} (contour=$CONTOUR)"

@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       sha:
-        description: Git commit SHA in couragegang/web-ui
+        description: Git commit SHA in couragegang/ui (monorepo)
         required: true
         type: string
       trigger_repository:
@@ -90,7 +90,7 @@ jobs:
     env:
       REMOTE_DIR: ${{ needs.resolve.outputs.remote_dir }}
       WEB_UI_SHA: ${{ needs.resolve.outputs.sha }}
-      WEB_UI_REPO: ${{ github.repository_owner }}/web-ui
+      WEB_UI_REPO: ${{ github.repository_owner }}/ui
     steps:
       - name: Checkout web-ui
         uses: actions/checkout@v4
@@ -99,17 +99,22 @@ jobs:
           ref: ${{ env.WEB_UI_SHA }}
           token: ${{ secrets.CALLER_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Build SPA
+      - name: Build SPA (apps/web)
         run: |
-          npm ci
-          npm run build
-          test -f dist/index.html
+          pnpm install --frozen-lockfile
+          pnpm --filter @couragegang/web build
+          test -f apps/web/dist/index.html
 
       - name: Rsync static to VPS
         env:
@@ -129,5 +134,5 @@ jobs:
           PORT="${VPS_SSH_PORT:-22}"
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${PORT} -o StrictHostKeyChecking=no" \
-            dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/"
-          echo "Deployed web-ui ${WEB_UI_SHA} → ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}"
+            apps/web/dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/"
+          echo "Deployed ui ${WEB_UI_SHA} → ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}"
