@@ -7,7 +7,7 @@ import os
 import requests
 
 CHAT_STATUSES = frozenset(
-    {"stub", "completed", "generating", "awaiting_approval", "denied", "error"}
+    {"stub", "completed", "generating", "awaiting_approval", "denied", "error", "orchestrating"}
 )
 
 

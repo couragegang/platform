@@ -30,7 +30,7 @@ docker compose up --build
 | GitHub Environment | `test` | `prod` |
 | Каталог на VPS | `/opt/couragegang-test` | `/opt/couragegang-prod` |
 | Тег образа | `<sha>-test`, `test-latest` | `<sha>-prod`, `prod-latest` |
-| Host-порты (если оба на одном VPS) | **18080–18088** | 8080–8088 |
+| Host-порты (если оба на одном VPS) | **18080–18088**, n8n **15678** | 8080–8088, n8n **5678** |
 | Публичный URL (OIDC) | Variable `VPS_PUBLIC_BASE_URL` в env **test** | Variable в env **prod** |
 
 Workflow: [`.github/workflows/deploy-vps.yml`](../.github/workflows/deploy-vps.yml)
