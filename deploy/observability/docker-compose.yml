@@ -37,6 +37,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme-set-in-env}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_SERVER_SERVE_FROM_SUB_PATH: ${GRAFANA_SERVE_FROM_SUB_PATH:-false}
       GF_INSTALL_PLUGINS: ""
     volumes:
       # Только VPS-файлы (не монтировать всю provisioning/: datasources.local.yml даёт второй isDefault → crash)
@@ -45,7 +46,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "${GRAFANA_HOST_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
 
 volumes:
   prometheus-test-data:
