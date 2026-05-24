@@ -1,8 +1,6 @@
 name: Deploy web-ui to VPS
 
 on:
-  repository_dispatch:
-    types: [deploy-ui]
   workflow_dispatch:
     inputs:
       contour:
@@ -14,7 +12,7 @@ on:
           - test
           - prod
       sha:
-        description: web-ui commit SHA (default = tip of test/main for contour)
+        description: ui monorepo commit SHA (default = tip of test/main for contour)
         required: false
   workflow_call:
     inputs:
@@ -23,17 +21,13 @@ on:
         required: true
         type: string
       sha:
-        description: Git commit SHA in couragegang/ui (monorepo)
+        description: Git commit SHA in couragegang/ui
         required: true
         type: string
       trigger_repository:
         description: owner/repo that triggered deploy (logging)
         required: false
         type: string
-    secrets:
-      CALLER_ACCESS_TOKEN:
-        description: GITHUB_TOKEN from web-ui (read private repo checkout)
-        required: false
 
 permissions:
   contents: read
@@ -55,10 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           contour="${{ inputs.contour || github.event.inputs.contour || 'test' }}"
-          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            contour="${{ github.event.client_payload.contour }}"
-            sha="${{ github.event.client_payload.sha }}"
-          elif [[ -n "${{ inputs.sha }}" ]]; then
+          if [[ -n "${{ inputs.sha }}" ]]; then
             sha="${{ inputs.sha }}"
           elif [[ -n "${{ github.event.inputs.sha }}" ]]; then
             sha="${{ github.event.inputs.sha }}"
@@ -85,7 +76,7 @@ jobs:
             echo "trigger_repo=$trigger_repo"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Deploy web-ui contour=$contour sha=$sha → $remote_dir (from ${trigger_repo:-manual})"
+          echo "Deploy ui contour=$contour sha=$sha → $remote_dir (from ${trigger_repo:-manual})"
 
   build-and-deploy:
     needs: resolve
@@ -96,13 +87,16 @@ jobs:
       REMOTE_DIR: ${{ needs.resolve.outputs.remote_dir }}
       WEB_UI_SHA: ${{ needs.resolve.outputs.sha }}
       WEB_UI_REPO: ${{ github.repository_owner }}/ui
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
     steps:
-      - name: Checkout web-ui
+      - name: Checkout ui
         uses: actions/checkout@v4
         with:
           repository: ${{ env.WEB_UI_REPO }}
           ref: ${{ env.WEB_UI_SHA }}
-          token: ${{ secrets.CALLER_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -122,19 +116,14 @@ jobs:
           test -f apps/web/dist/index.html
 
       - name: Rsync static to VPS
-        env:
-          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           set -euo pipefail
-          if [[ -z "${SSH_KEY:-}" || -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
-            echo "Set VPS_HOST, VPS_USER, VPS_SSH_KEY in GitHub Environment '${{ needs.resolve.outputs.contour }}'" >&2
+          if [[ -z "${VPS_SSH_KEY:-}" || -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
+            echo "Set VPS_HOST, VPS_USER, VPS_SSH_KEY in platform Environment '${{ needs.resolve.outputs.contour }}'" >&2
             exit 1
           fi
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           PORT="${VPS_SSH_PORT:-22}"
           rsync -avz --delete --no-times --omit-dir-times \

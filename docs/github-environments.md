@@ -79,8 +79,8 @@
 | `e2e.yml` | `test` | нет (только CI compose) |
 | `build-images.yml` | `test` или `prod` (dispatch) | нет |
 | `deploy-vps.yml` | `test` / `prod` по ветке или dispatch | да (Docker BC) |
-| `deploy-web-ui.yml` | `test` / `prod` (dispatch / ручной) | rsync SPA → `/var/www/ai*.valoriel.ru` |
-| `ui` → `deploy-web.yml` | `test` / `prod` (push, path filter) | то же; **VPS_* secrets в Environment репо `ui`** (не через `workflow_call` platform) |
+| `deploy-web-ui.yml` | `test` / `prod` (`workflow_call` из **ui** или dispatch) | rsync `apps/web/dist` → `/var/www/ai*.valoriel.ru`; VPS_* только в platform Environment |
+| `ui` → `trigger-deploy.yml` | push + path filter | как BC: `workflow_call` → `deploy-web-ui.yml` |
 | `deploy-observability.yml` | `test` (SSH на тот же VPS) | `/opt/couragegang-observability` |
 | `trigger-deploy.yml` (в каждом BC) | — | `workflow_call` → reusable `deploy-vps.yml` в platform |
 
