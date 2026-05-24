@@ -8,7 +8,15 @@ CONTOUR="${1:-prod}"
 SSH_TARGET="${2:-}"
 
 PLATFORM_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WEB_UI_ROOT="$(cd "$PLATFORM_ROOT/../web-ui" && pwd)"
+WORKSPACE_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
+if [[ -d "$WORKSPACE_ROOT/ui/web-ui" ]]; then
+  WEB_UI_ROOT="$(cd "$WORKSPACE_ROOT/ui/web-ui" && pwd)"
+elif [[ -d "$WORKSPACE_ROOT/web-ui" ]]; then
+  WEB_UI_ROOT="$(cd "$WORKSPACE_ROOT/web-ui" && pwd)"
+else
+  echo "UI not found: expected $WORKSPACE_ROOT/ui/web-ui" >&2
+  exit 1
+fi
 
 case "$CONTOUR" in
   prod)
