@@ -22,5 +22,11 @@ services:
     ports: ["18088:8088"]
   n8n:
     ports: ["15678:5678"]
+    environment:
+      N8N_PATH: /n8n/
+      N8N_EDITOR_BASE_URL: https://ai-test.valoriel.ru/n8n/
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://ai-test.valoriel.ru/n8n/
+      N8N_PROXY_HOPS: "1"
   mcp-notion:
     ports: ["18091:8091"]

@@ -184,6 +184,7 @@ test  →  PR в main  →  деплой ai.valoriel.ru (prod)
 |------|------------|
 | `/api/*` | **BFF** (me, chat, mcp, auth/login, …) |
 | `/v1/iam/auth/oidc/*/callback` | IAM (OIDC redirect URI из bake) |
+| `/n8n/` | **n8n** UI (Docker `:15678`, subpath `N8N_PATH=/n8n/`) |
 
 Код фронта **не меняется** между контурами — другой только домен.
 
@@ -209,6 +210,8 @@ test  →  PR в main  →  деплой ai.valoriel.ru (prod)
 | rsync **Permission denied** | `chown` static-каталога на **`VPS_USER`** (см. §2): `sudo chown -R VPS_USER:www-data /var/www/ai-test.valoriel.ru` |
 | SSL error | Путь к `ai-test.valoriel.ru_le1.crtca` в nginx |
 | OIDC redirect на prod URL | Пересобрать образы test с `VPS_PUBLIC_BASE_URL=https://ai-test.valoriel.ru` |
+| 502 на `/n8n/` | Контейнер n8n не поднят или порт не **15678** — `docker ps`, `ss -tlnp \| grep 15678` |
+| n8n UI blank / 404 assets | Пересобрать образ n8n после обновления nginx (нужен `N8N_PATH=/n8n/` в baked env) |
 | Prod и test мешают порты | Test без `docker-compose.ports-test.yml` — проверьте `DEPLOY_CONTOUR=test` в `up.sh` |
 
 ```bash

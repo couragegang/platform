@@ -17,7 +17,7 @@
 - Образ **`ghcr.io/<owner>/n8n:<sha>-<contour>`** — baked в CI (`docker/n8n/Dockerfile`), workflow внутри образа (`n8n import:workflow` при первом старте).
 - `ai-runtime` на VPS: `AI_ORCHESTRATOR=n8n` (фрагмент `config/bake/fragments/ai.env`) — пересборка через **Deploy to VPS** → `ai-runtime` или флаг **redeploy_ai** в deploy-n8n.
 - Секрет **`AI_INTERNAL_API_KEY`** — в GitHub Environment **test** / **prod** (как остальные internal keys).
-- UI n8n: test `http://<vps>:15678`, prod `http://<vps>:5678` (или только внутренняя сеть `http://n8n:5678`).
+- UI n8n через nginx: **`https://ai-test.valoriel.ru/n8n/`** (test), **`https://ai.valoriel.ru/n8n/`** (prod). Subpath: `N8N_PATH=/n8n/` в baked env (`VPS_PUBLIC_BASE_URL` при CI) + `docker-compose.ports-*.yml`.
 
 ## Однократная настройка VPS
 

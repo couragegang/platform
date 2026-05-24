@@ -102,10 +102,23 @@ prepare_n8n_baked_env() {
   {
     echo "DEPLOY_CONTOUR=$CONTOUR"
     cat "$PLATFORM_ROOT/config/bake/fragments/n8n.env"
+    if [[ -n "$PUBLIC_BASE" ]]; then
+      echo "N8N_PATH=/n8n/"
+      echo "N8N_EDITOR_BASE_URL=${PUBLIC_BASE}/n8n/"
+      echo "WEBHOOK_URL=${PUBLIC_BASE}/n8n/"
+      echo "N8N_PROTOCOL=https"
+      echo "N8N_PROXY_HOPS=1"
+    fi
     for key in AI_INTERNAL_API_KEY POLICY_INTERNAL_API_KEY MCP_INTERNAL_API_KEY; do
       grep "^${key}=" "$SECRETS_ENV" || true
     done
-  } | awk 'BEGIN{seen[""]=0} /^[A-Za-z_][A-Za-z0-9_]*=/ {k=$0; sub(/=.*/,"",k); if(!seen[k]++){print}}' >"$out"
+  } | awk '/^[A-Za-z_][A-Za-z0-9_]*=/ {
+      eq = index($0, "=")
+      key = substr($0, 1, eq - 1)
+      val = substr($0, eq + 1)
+      if (val != "") last[key] = $0
+    }
+    END { for (k in last) print last[k] }' >"$out"
   echo "baked env -> docker/n8n/runtime-baked.env"
 }
 

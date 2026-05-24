@@ -28,6 +28,9 @@ on:
       - "n8n/**"
       - "docker/n8n/**"
       - "config/bake/fragments/n8n.env"
+      - "deploy/vps/docker-compose.ports-test.yml"
+      - "deploy/vps/docker-compose.ports-prod.yml"
+      - "scripts/prepare-baked-build.sh"
       - ".github/workflows/deploy-n8n.yml"
   repository_dispatch:
     types: [deploy-n8n]
@@ -111,6 +114,7 @@ jobs:
       SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'stub' }}
+      VPS_PUBLIC_BASE_URL: ${{ vars.VPS_PUBLIC_BASE_URL }}
     steps:
       - name: Checkout platform
         uses: actions/checkout@v4
