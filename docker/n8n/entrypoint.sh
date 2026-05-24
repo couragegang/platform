@@ -10,8 +10,14 @@ fi
 
 # Импорт workflow из образа. Маркер версии — при смене bundle на VPS переимпортируется один раз.
 # import:workflow по умолчанию деактивирует workflow — activate ниже.
-WORKFLOW_BUNDLE_VERSION="${N8N_WORKFLOW_BUNDLE_VERSION:-v2-onReceived}"
+WORKFLOW_BUNDLE_VERSION="${N8N_WORKFLOW_BUNDLE_VERSION:-v3-purge-dupes}"
 IMPORT_MARKER="/home/node/.n8n/.workflows-imported-${WORKFLOW_BUNDLE_VERSION}"
+
+# Дубликаты chat-orchestrator (старый lastNode + новый onReceived) держат HTTP до конца run.
+if [ -x /opt/n8n/purge-managed-workflows.sh ]; then
+  /opt/n8n/purge-managed-workflows.sh
+fi
+
 if [ ! -f "$IMPORT_MARKER" ]; then
   mkdir -p /home/node/.n8n
   for f in /opt/workflows/*.json; do

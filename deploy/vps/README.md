@@ -19,6 +19,7 @@
 - Секрет **`AI_INTERNAL_API_KEY`** — в GitHub Environment **test** / **prod** (как остальные internal keys).
 - UI n8n через nginx: **`https://ai-test.valoriel.ru/n8n/`** (test), **`https://ai.valoriel.ru/n8n/`** (prod). Subpath: bake по контуру + `docker-compose.ports-*.yml` (не `VPS_PUBLIC_BASE_URL`).
 - **Push в `platform`:** workflow **Deploy to VPS** = полный стек (`deploy_scope=all`). Изменения только в `n8n/**` или этот README **не** запускают Deploy to VPS (см. `paths` / `paths-ignore` в `deploy-vps.yml`). Один сервис — push в BC-репо (`ai-runtime`, …) → `workflow_dispatch` с `deploy_scope=single`.
+- **Дубликаты workflow в логах n8n** (`Activated workflow "chat-orchestrator"` дважды): удалите лишние в UI или перезапустите n8n с образом `v3-purge-dupes` (entrypoint чистит по имени перед import). Иначе старый webhook с `lastNode` держит HTTP ~15–30 с и ai падает по timeout.
 - **Нет executions в n8n:** `import:workflow` деактивирует workflow — entrypoint делает `n8n update:workflow --all --active=true` перед стартом. На уже развёрнутом volume без пересборки образа: `docker compose exec n8n n8n update:workflow --all --active=true` и `docker compose restart n8n`. У `ai`: `grep AI_ORCHESTRATOR /app/config/runtime-baked.env` → `n8n` и `AI_N8N_ENABLED=true`; в логах при старте: `useN8n=true`.
 
 ## Однократная настройка VPS

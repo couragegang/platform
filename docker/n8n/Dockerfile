@@ -10,7 +10,8 @@ LABEL org.opencontainers.image.contour="${DEPLOY_CONTOUR}"
 USER root
 COPY n8n/workflows/*.json /opt/workflows/
 COPY docker/n8n/entrypoint.sh /docker-entrypoint-custom.sh
-RUN chmod +x /docker-entrypoint-custom.sh
+COPY docker/n8n/purge-managed-workflows.sh /opt/n8n/purge-managed-workflows.sh
+RUN chmod +x /docker-entrypoint-custom.sh /opt/n8n/purge-managed-workflows.sh
 
 USER node
 WORKDIR /home/node
