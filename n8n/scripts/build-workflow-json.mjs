@@ -121,10 +121,9 @@ const workflow = {
       [{ name: 'X-Ai-Internal-Key', value: aiKey }],
       [{ name: 'limit', value: '30' }],
     ),
-    node('Resume: Merge', 'n8n-nodes-base.merge', 3, [980, 260], {
-      mode: 'combine',
-      combinationMode: 'multiplex',
-      options: {},
+    node('Resume: Merge', 'n8n-nodes-base.merge', 3.2, [980, 260], {
+      mode: 'append',
+      numberInputs: 2,
     }),
     httpGet(
       'Resume: Pending',
@@ -196,10 +195,9 @@ return [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.a
       `={{ JSON.stringify({ orgId: ${orgId}, workspaceId: ${workspaceId}, query: ${message}, connectorKeys: null, sourceIds: null }) }}`,
       [{ name: 'Content-Type', value: 'application/json' }],
     ),
-    node('Merge Context', 'n8n-nodes-base.merge', 3, [1080, 600], {
-      mode: 'combine',
-      combinationMode: 'multiplex',
-      options: {},
+    node('Merge Context', 'n8n-nodes-base.merge', 3.2, [1080, 600], {
+      mode: 'append',
+      numberInputs: 3,
     }),
     codeNode('Router', [1300, 600], routerCode),
 

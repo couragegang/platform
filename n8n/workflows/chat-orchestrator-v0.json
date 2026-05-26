@@ -68,7 +68,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $('Parse Context').first().json.aiBase + '/internal/conversations/' + $('Parse Context').first().json.conversationId + '/messages' }}",
+        "url": "={{ $('Parse Context').first().json.aiBase }}/internal/conversations/{{ $('Parse Context').first().json.conversationId }}/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -107,7 +107,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $('Parse Context').first().json.policyBase + '/pending-approvals/' + $('Parse Context').first().json.approvedPendingApprovalId }}",
+        "url": "={{ $('Parse Context').first().json.policyBase }}/pending-approvals/{{ $('Parse Context').first().json.approvedPendingApprovalId }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": []
@@ -135,14 +135,13 @@
     },
     {
       "parameters": {
-        "mode": "combine",
-        "combinationMode": "multiplex",
-        "options": {}
+        "mode": "append",
+        "numberInputs": 2
       },
       "id": "resume-merge",
       "name": "Resume Merge",
       "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
+      "typeVersion": 3.2,
       "position": [
         1020,
         340
@@ -151,7 +150,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const ctx = $('Parse Context').first().json;\r\nconst historyRaw = $('Resume: History').first().json.items || [];\r\nconst pending = $('Resume: Pending').first().json;\r\n\r\nconst history = historyRaw\r\n  .filter((m) => m.role && m.content)\r\n  .map((m) => ({ role: m.role, content: m.content }));\r\n\r\nfunction buildToolContextMessage(hist) {\r\n  const parts = [];\r\n  let lastAssistant = null;\r\n  for (const turn of hist) {\r\n    if (turn.role === 'assistant') lastAssistant = turn;\r\n    else if (turn.role === 'user' && turn.content?.trim()) parts.push(turn.content.trim());\r\n  }\r\n  let sb = '';\r\n  if (lastAssistant?.content?.trim()) sb += 'Контекст ассистента: ' + lastAssistant.content.trim();\r\n  if (parts.length) {\r\n    if (sb) sb += '\\n';\r\n    sb += 'Запросы пользователя: ' + parts.join(' | ');\r\n  }\r\n  return sb;\r\n}\r\n\r\nfunction lastUserContent(hist) {\r\n  for (let i = hist.length - 1; i >= 0; i--) {\r\n    const t = hist[i];\r\n    if (t.role === 'user' && t.content?.trim()) return t.content.trim();\r\n  }\r\n  return null;\r\n}\r\n\r\nfunction notionToolArguments(toolName, hist, fallback) {\r\n  const n = (toolName || '').toLowerCase();\r\n  const lastUser = lastUserContent(hist);\r\n  if (n.includes('write') || n.includes('create')) {\r\n    const content = fallback?.trim() || lastUser || '';\r\n    return { content, message: content, title: lastUser };\r\n  }\r\n  const query = lastUser || fallback || '';\r\n  return { query, q: query, content: query, message: query };\r\n}\r\n\r\nif (!pending || pending.status !== 'approved') {\r\n  return [\r\n    {\r\n      json: {\r\n        skipInvoke: true,\r\n        payload: {\r\n          status: 'error',\r\n          reply: 'Не удалось выполнить действие: подтверждение не найдено или уже недействительно.',\r\n        },\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nconst toolName = pending.toolName;\r\nconst connectorKey = 'notion';\r\nlet toolMessage = buildToolContextMessage(history);\r\nif (!toolMessage?.trim()) toolMessage = ctx.message;\r\nconst toolArguments = notionToolArguments(toolName, history, toolMessage);\r\n\r\nreturn [{ json: { toolName, connectorKey, toolArguments, skipInvoke: false } }];\r\n"
+        "jsCode": "const ctx = $('Parse Context').first().json;\r\nconst historyRaw = $('Resume History').first().json.items || [];\r\nconst pending = $('Resume Pending').first().json;\r\n\r\nconst history = historyRaw\r\n  .filter((m) => m.role && m.content)\r\n  .map((m) => ({ role: m.role, content: m.content }));\r\n\r\nfunction buildToolContextMessage(hist) {\r\n  const parts = [];\r\n  let lastAssistant = null;\r\n  for (const turn of hist) {\r\n    if (turn.role === 'assistant') lastAssistant = turn;\r\n    else if (turn.role === 'user' && turn.content?.trim()) parts.push(turn.content.trim());\r\n  }\r\n  let sb = '';\r\n  if (lastAssistant?.content?.trim()) sb += 'Контекст ассистента: ' + lastAssistant.content.trim();\r\n  if (parts.length) {\r\n    if (sb) sb += '\\n';\r\n    sb += 'Запросы пользователя: ' + parts.join(' | ');\r\n  }\r\n  return sb;\r\n}\r\n\r\nfunction lastUserContent(hist) {\r\n  for (let i = hist.length - 1; i >= 0; i--) {\r\n    const t = hist[i];\r\n    if (t.role === 'user' && t.content?.trim()) return t.content.trim();\r\n  }\r\n  return null;\r\n}\r\n\r\nfunction notionToolArguments(toolName, hist, fallback) {\r\n  const n = (toolName || '').toLowerCase();\r\n  const lastUser = lastUserContent(hist);\r\n  if (n.includes('write') || n.includes('create')) {\r\n    const content = fallback?.trim() || lastUser || '';\r\n    return { content, message: content, title: lastUser };\r\n  }\r\n  const query = lastUser || fallback || '';\r\n  return { query, q: query, content: query, message: query };\r\n}\r\n\r\nif (!pending || pending.status !== 'approved') {\r\n  return [\r\n    {\r\n      json: {\r\n        skipInvoke: true,\r\n        payload: {\r\n          status: 'error',\r\n          reply: 'Не удалось выполнить действие: подтверждение не найдено или уже недействительно.',\r\n        },\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nconst toolName = pending.toolName;\r\nconst connectorKey = 'notion';\r\nlet toolMessage = buildToolContextMessage(history);\r\nif (!toolMessage?.trim()) toolMessage = ctx.message;\r\nconst toolArguments = notionToolArguments(toolName, history, toolMessage);\r\n\r\nreturn [{ json: { toolName, connectorKey, toolArguments, skipInvoke: false } }];\r\n"
       },
       "id": "resume-prepare",
       "name": "Resume Prepare",
@@ -165,7 +164,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Context').first().json.mcpBase + '/internal/workspaces/' + $('Parse Context').first().json.workspaceId + '/tools/invoke' }}",
+        "url": "={{ $('Parse Context').first().json.mcpBase }}/internal/workspaces/{{ $('Parse Context').first().json.workspaceId }}/tools/invoke",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -216,7 +215,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $('Parse Context').first().json.aiBase + '/internal/conversations/' + $('Parse Context').first().json.conversationId + '/messages' }}",
+        "url": "={{ $('Parse Context').first().json.aiBase }}/internal/conversations/{{ $('Parse Context').first().json.conversationId }}/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -255,7 +254,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $('Parse Context').first().json.mcpBase + '/workspaces/' + $('Parse Context').first().json.workspaceId + '/installations' }}",
+        "url": "={{ $('Parse Context').first().json.mcpBase }}/workspaces/{{ $('Parse Context').first().json.workspaceId }}/installations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": []
@@ -284,7 +283,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Context').first().json.knowledgeBase + '/search' }}",
+        "url": "={{ $('Parse Context').first().json.knowledgeBase }}/search",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -316,14 +315,13 @@
     },
     {
       "parameters": {
-        "mode": "combine",
-        "combinationMode": "multiplex",
-        "options": {}
+        "mode": "append",
+        "numberInputs": 3
       },
       "id": "merge-for-route",
       "name": "Merge for Route",
       "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
+      "typeVersion": 3.2,
       "position": [
         1040,
         640

@@ -70,8 +70,8 @@ function httpGet(name, pos, url, headers = [], query = []) {
   };
 }
 
-const ctx = "={{ $('Parse Context').first().json }}";
-const stepCtx = "={{ $('Parse Step Context').first().json }}";
+const ctx = "$('Parse Context').first().json";
+const stepCtx = "$('Parse Step Context').first().json";
 
 // Стабильные id — import перезаписывает ту же запись, без дубликатов по имени.
 const orchestrator = {
@@ -124,11 +124,11 @@ const orchestrator = {
       [],
     ),
     {
-      parameters: { mode: 'combine', combinationMode: 'multiplex', options: {} },
+      parameters: { mode: 'append', numberInputs: 2 },
       id: 'resume-merge',
       name: 'Resume Merge',
       type: 'n8n-nodes-base.merge',
-      typeVersion: 3,
+      typeVersion: 3.2,
       position: [1020, 340],
     },
     codeNode('Resume Prepare', [1220, 340], resumePrepare),
@@ -172,11 +172,11 @@ return [{ json: payload }];`),
       [{ name: 'Content-Type', value: 'application/json' }],
     ),
     {
-      parameters: { mode: 'combine', combinationMode: 'multiplex', options: {} },
+      parameters: { mode: 'append', numberInputs: 3 },
       id: 'merge-for-route',
       name: 'Merge for Route',
       type: 'n8n-nodes-base.merge',
-      typeVersion: 3,
+      typeVersion: 3.2,
       position: [1040, 640],
     },
     codeNode('Prepare Route Body', [1240, 640], mergeForRoute),

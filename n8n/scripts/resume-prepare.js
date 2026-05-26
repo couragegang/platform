@@ -1,6 +1,6 @@
 const ctx = $('Parse Context').first().json;
-const historyRaw = $('Resume: History').first().json.items || [];
-const pending = $('Resume: Pending').first().json;
+const historyRaw = $('Resume History').first().json.items || [];
+const pending = $('Resume Pending').first().json;
 
 const history = historyRaw
   .filter((m) => m.role && m.content)

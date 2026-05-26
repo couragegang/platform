@@ -82,7 +82,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.policyBase + '/internal/evaluate' }}",
+        "url": "={{ $('Parse Step Context').first().json.policyBase }}/internal/evaluate",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -151,7 +151,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/hitl/format-approval' }}",
+        "url": "={{ $('Parse Step Context').first().json.aiBase }}/internal/hitl/format-approval",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -167,7 +167,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify(={{ $('Parse Step Context').first().json }}.fmtBody) }}",
+        "jsonBody": "={{ JSON.stringify($('Parse Step Context').first().json.fmtBody) }}",
         "options": {
           "response": {
             "response": {
@@ -188,7 +188,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/runs/' + $('Parse Step Context').first().json.runId + '/complete' }}",
+        "url": "={{ $('Parse Step Context').first().json.aiBase }}/internal/runs/{{ $('Parse Step Context').first().json.runId }}/complete",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -271,7 +271,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/hitl/format-denied' }}",
+        "url": "={{ $('Parse Step Context').first().json.aiBase }}/internal/hitl/format-denied",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -287,7 +287,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify(={{ $('Parse Step Context').first().json }}.fmtBody) }}",
+        "jsonBody": "={{ JSON.stringify($('Parse Step Context').first().json.fmtBody) }}",
         "options": {
           "response": {
             "response": {
@@ -308,7 +308,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/runs/' + $('Parse Step Context').first().json.runId + '/complete' }}",
+        "url": "={{ $('Parse Step Context').first().json.aiBase }}/internal/runs/{{ $('Parse Step Context').first().json.runId }}/complete",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -359,7 +359,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Parse Step Context').first().json.mcpBase + '/internal/workspaces/' + $('Parse Step Context').first().json.workspaceId + '/tools/invoke' }}",
+        "url": "={{ $('Parse Step Context').first().json.mcpBase }}/internal/workspaces/{{ $('Parse Step Context').first().json.workspaceId }}/tools/invoke",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
