@@ -55,6 +55,8 @@ def mcp_installation_row(installation_id: str) -> dict[str, Any] | None:
         return None
     parts = raw.split("|", 1)
     config = json.loads(parts[0]) if parts[0] else {}
+    if config is None:
+        config = {}
     secret_ref = parts[1] if len(parts) > 1 else ""
     return {"connection_config": config, "credential_secret_ref": secret_ref}
 
