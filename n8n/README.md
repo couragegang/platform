@@ -53,10 +53,15 @@ chat-tool-step (на каждый шаг):
 ## Сборка JSON
 
 ```bash
-node platform/n8n/scripts/build-workflows.mjs
+cd platform/n8n
+npm test          # unit + static validation + drift check
+npm run build     # regenerate workflows/*.json
+node scripts/build-workflows.mjs
 ```
 
-Скрипты: [`scripts/`](scripts/) — orchestrator: `parse-context.js`, `merge-for-route.js`, `run-tool-chain.js`, …; tool-step: `tool-step-parse.js`, `tool-step-build-error.js`, `tool-step-return-*.js`.
+Скрипты: [`scripts/`](scripts/) — orchestrator: `parse-context.js`, `lib/merge-for-route.core.js`, `run-tool-chain.js`, …; tool-step: `tool-step-parse.js`, …
+
+**Тесты:** [`tests/`](tests/) — pure-функции Code nodes + статическая проверка JSON (expressions, Merge nodes, connections). CI: [`.github/workflows/n8n-workflow-tests.yml`](../.github/workflows/n8n-workflow-tests.yml).
 
 ## Импорт
 

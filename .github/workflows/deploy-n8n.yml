@@ -50,6 +50,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: n8n
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm test
+      - run: npm run validate
+
   resolve:
     runs-on: ubuntu-latest
     outputs:
@@ -94,7 +107,7 @@ jobs:
           echo "Deploy n8n contour=$contour tag=$tag redeploy_ai=$redeploy_ai"
 
   build-and-push:
-    needs: resolve
+    needs: [resolve, test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ needs.resolve.outputs.contour }}
@@ -145,7 +158,7 @@ jobs:
           ./scripts/push-baked-images.sh "$BAKE_SERVICE"
 
   deploy:
-    needs: [resolve, build-and-push]
+    needs: [resolve, test, build-and-push]
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_deploy != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

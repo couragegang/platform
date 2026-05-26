@@ -4,19 +4,20 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { bundleN8nCode } from './bundle-n8n-code.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 
 const parseContext = read('parse-context.js');
-const mergeForRoute = read('merge-for-route.js');
+const mergeForRoute = bundleN8nCode(['lib/merge-for-route.core.js'], 'scripts/merge-for-route.runner.js');
 const runToolChain = read('run-tool-chain.js');
 const summarizeChain = read('summarize-chain.js');
 const toolStepParse = read('tool-step-parse.js');
 const toolStepBuildError = read('tool-step-build-error.js');
 const toolStepReturnComplete = read('tool-step-return-complete.js');
 const toolStepReturnContinue = read('tool-step-return-continue.js');
-const resumePrepare = read('resume-prepare.js');
+const resumePrepare = bundleN8nCode(['lib/resume-prepare.core.js'], 'scripts/resume-prepare.runner.js');
 
 const nid = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

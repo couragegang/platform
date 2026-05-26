@@ -1,0 +1,32 @@
+name: n8n workflow tests
+
+on:
+  push:
+    branches: [main, test]
+    paths:
+      - "n8n/**"
+      - ".github/workflows/n8n-workflow-tests.yml"
+  pull_request:
+    branches: [main, test]
+    paths:
+      - "n8n/**"
+      - ".github/workflows/n8n-workflow-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: n8n
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Unit + static workflow tests
+        run: npm test
+
+      - name: Validate committed workflow JSON
+        run: npm run validate

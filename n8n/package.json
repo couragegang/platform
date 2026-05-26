@@ -1,0 +1,10 @@
+{
+  "name": "@couragegang/n8n-workflows",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-workflows.mjs",
+    "validate": "node scripts/validate-workflows.mjs",
+    "test": "node --test tests/*.test.js"
+  }
+}
