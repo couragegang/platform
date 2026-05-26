@@ -44,7 +44,7 @@
           "conditions": [
             {
               "id": "resume",
-              "leftValue": "={{ ={{ $('Parse Context').first().json }}.approvedPendingApprovalId }}",
+              "leftValue": "={{ $('Parse Context').first().json.approvedPendingApprovalId }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -68,13 +68,13 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ ={{ $('Parse Context').first().json }}.aiBase }}/internal/conversations/{{ ={{ $('Parse Context').first().json }}.conversationId }}/messages",
+        "url": "={{ $('Parse Context').first().json.aiBase + '/internal/conversations/' + $('Parse Context').first().json.conversationId + '/messages' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Context').first().json.aiKey }}"
             }
           ]
         },
@@ -107,7 +107,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ ={{ $('Parse Context').first().json }}.policyBase }}/pending-approvals/{{ ={{ $('Parse Context').first().json }}.approvedPendingApprovalId }}",
+        "url": "={{ $('Parse Context').first().json.policyBase + '/pending-approvals/' + $('Parse Context').first().json.approvedPendingApprovalId }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": []
@@ -165,13 +165,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Context').first().json }}.mcpBase }}/internal/workspaces/{{ ={{ $('Parse Context').first().json }}.workspaceId }}/tools/invoke",
+        "url": "={{ $('Parse Context').first().json.mcpBase + '/internal/workspaces/' + $('Parse Context').first().json.workspaceId + '/tools/invoke' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Mcp-Internal-Key",
-              "value": "={{ ={{ $('Parse Context').first().json }}.mcpKey }}"
+              "value": "={{ $('Parse Context').first().json.mcpKey }}"
             },
             {
               "name": "Content-Type",
@@ -216,13 +216,13 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ ={{ $('Parse Context').first().json }}.aiBase }}/internal/conversations/{{ ={{ $('Parse Context').first().json }}.conversationId }}/messages",
+        "url": "={{ $('Parse Context').first().json.aiBase + '/internal/conversations/' + $('Parse Context').first().json.conversationId + '/messages' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Context').first().json.aiKey }}"
             }
           ]
         },
@@ -255,7 +255,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ ={{ $('Parse Context').first().json }}.mcpBase }}/workspaces/{{ ={{ $('Parse Context').first().json }}.workspaceId }}/installations",
+        "url": "={{ $('Parse Context').first().json.mcpBase + '/workspaces/' + $('Parse Context').first().json.workspaceId + '/installations' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": []
@@ -284,7 +284,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Context').first().json }}.knowledgeBase }}/search",
+        "url": "={{ $('Parse Context').first().json.knowledgeBase + '/search' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -296,7 +296,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ orgId: ={{ $('Parse Context').first().json }}.orgId, workspaceId: ={{ $('Parse Context').first().json }}.workspaceId, query: ={{ $('Parse Context').first().json }}.message, connectorKeys: null, sourceIds: null }) }}",
+        "jsonBody": "={{ JSON.stringify({ orgId: $('Parse Context').first().json.orgId, workspaceId: $('Parse Context').first().json.workspaceId, query: $('Parse Context').first().json.message, connectorKeys: null, sourceIds: null }) }}",
         "options": {
           "response": {
             "response": {

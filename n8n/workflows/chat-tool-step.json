@@ -44,7 +44,7 @@
           "conditions": [
             {
               "id": "valid",
-              "leftValue": "={{ ={{ $('Parse Step Context').first().json }}.valid ? \"yes\" : \"\" }}",
+              "leftValue": "={{ $('Parse Step Context').first().json.valid ? \"yes\" : \"\" }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -82,13 +82,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.policyBase }}/internal/evaluate",
+        "url": "={{ $('Parse Step Context').first().json.policyBase + '/internal/evaluate' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Policy-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.policyKey }}"
+              "value": "={{ $('Parse Step Context').first().json.policyKey }}"
             },
             {
               "name": "Content-Type",
@@ -98,7 +98,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n        orgId: ={{ $('Parse Step Context').first().json }}.orgId,\n        workspaceId: ={{ $('Parse Step Context').first().json }}.workspaceId,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        toolArguments: ={{ $('Parse Step Context').first().json }}.step.arguments,\n        userId: ={{ $('Parse Step Context').first().json }}.userId || undefined\n      }) }}",
+        "jsonBody": "={{ JSON.stringify({\n        orgId: $('Parse Step Context').first().json.orgId,\n        workspaceId: $('Parse Step Context').first().json.workspaceId,\n        connectorKey: $('Parse Step Context').first().json.step.connectorKey,\n        toolName: $('Parse Step Context').first().json.step.toolName,\n        toolArguments: $('Parse Step Context').first().json.step.arguments,\n        userId: $('Parse Step Context').first().json.userId || undefined\n      }) }}",
         "options": {
           "response": {
             "response": {
@@ -151,13 +151,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/hitl/format-approval",
+        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/hitl/format-approval' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Step Context').first().json.aiKey }}"
             },
             {
               "name": "Content-Type",
@@ -188,13 +188,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/runs/{{ ={{ $('Parse Step Context').first().json }}.runId }}/complete",
+        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/runs/' + $('Parse Step Context').first().json.runId + '/complete' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Step Context').first().json.aiKey }}"
             },
             {
               "name": "Content-Type",
@@ -204,7 +204,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n        status: \"awaiting_approval\",\n        reply: $(\"Format Approval\").first().json.message,\n        pendingApprovalId: $(\"Policy Evaluate\").first().json.pendingApprovalId,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey\n      }) }}",
+        "jsonBody": "={{ JSON.stringify({\n        status: \"awaiting_approval\",\n        reply: $(\"Format Approval\").first().json.message,\n        pendingApprovalId: $(\"Policy Evaluate\").first().json.pendingApprovalId,\n        toolName: $('Parse Step Context').first().json.step.toolName,\n        connectorKey: $('Parse Step Context').first().json.step.connectorKey\n      }) }}",
         "options": {
           "response": {
             "response": {
@@ -271,13 +271,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/hitl/format-denied",
+        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/hitl/format-denied' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Step Context').first().json.aiKey }}"
             },
             {
               "name": "Content-Type",
@@ -308,13 +308,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.aiBase }}/internal/runs/{{ ={{ $('Parse Step Context').first().json }}.runId }}/complete",
+        "url": "={{ $('Parse Step Context').first().json.aiBase + '/internal/runs/' + $('Parse Step Context').first().json.runId + '/complete' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Ai-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.aiKey }}"
+              "value": "={{ $('Parse Step Context').first().json.aiKey }}"
             },
             {
               "name": "Content-Type",
@@ -324,7 +324,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n        status: \"denied\",\n        reply: $(\"Format Denied\").first().json.message,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey\n      }) }}",
+        "jsonBody": "={{ JSON.stringify({\n        status: \"denied\",\n        reply: $(\"Format Denied\").first().json.message,\n        toolName: $('Parse Step Context').first().json.step.toolName,\n        connectorKey: $('Parse Step Context').first().json.step.connectorKey\n      }) }}",
         "options": {
           "response": {
             "response": {
@@ -359,13 +359,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ={{ $('Parse Step Context').first().json }}.mcpBase }}/internal/workspaces/{{ ={{ $('Parse Step Context').first().json }}.workspaceId }}/tools/invoke",
+        "url": "={{ $('Parse Step Context').first().json.mcpBase + '/internal/workspaces/' + $('Parse Step Context').first().json.workspaceId + '/tools/invoke' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Mcp-Internal-Key",
-              "value": "={{ ={{ $('Parse Step Context').first().json }}.mcpKey }}"
+              "value": "={{ $('Parse Step Context').first().json.mcpKey }}"
             },
             {
               "name": "Content-Type",
@@ -375,7 +375,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n        connectorKey: ={{ $('Parse Step Context').first().json }}.step.connectorKey,\n        toolName: ={{ $('Parse Step Context').first().json }}.step.toolName,\n        arguments: ={{ $('Parse Step Context').first().json }}.step.arguments\n      }) }}",
+        "jsonBody": "={{ JSON.stringify({\n        connectorKey: $('Parse Step Context').first().json.step.connectorKey,\n        toolName: $('Parse Step Context').first().json.step.toolName,\n        arguments: $('Parse Step Context').first().json.step.arguments\n      }) }}",
         "options": {
           "response": {
             "response": {
