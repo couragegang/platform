@@ -10,6 +10,12 @@ from lib.http_client import ApiSession
 pytestmark = [pytest.mark.k, pytest.mark.regress]
 
 
+def _require_legacy_hitl_path() -> None:
+    orchestrator = (os.getenv("AI_ORCHESTRATOR") or os.getenv("E2E_AI_ORCHESTRATOR") or "n8n").strip().lower()
+    if orchestrator == "n8n":
+        pytest.skip("K4 explicit toolName HITL applies to legacy ChatService; n8n uses connector workflows")
+
+
 class TestK1Auth:
     def test_register_login_logout(self, require_compose):
         s = ApiSession()
@@ -83,6 +89,7 @@ class TestK3DeepSeekChat:
 
 class TestK4Hitl:
     def test_pending_approvals_approve(self, session: ApiSession):
+        _require_legacy_hitl_path()
         token = NOTION_TOKEN or "ntn_e2e_fake_k4"
         session.install_notion(token, label="K4 HITL")
 
@@ -118,6 +125,7 @@ class TestK4Hitl:
         assert approved.json()["status"] == "approved"
 
     def test_pending_approvals_reject(self, session: ApiSession):
+        _require_legacy_hitl_path()
         token = NOTION_TOKEN or "ntn_e2e_fake_k4_reject"
         session.install_notion(token, label="K4 HITL reject")
 

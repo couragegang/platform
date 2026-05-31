@@ -23,8 +23,11 @@ def parse_chat_response(response: requests.Response) -> dict:
 
 
 def expected_chat_status() -> str:
-    """Status for default compose (stub) vs optional live DeepSeek."""
+    """Status for default compose (stub legacy / n8n orchestrator vs live DeepSeek)."""
+    orchestrator = (os.getenv("AI_ORCHESTRATOR") or "n8n").strip().lower()
     provider = os.getenv("E2E_LLM_PROVIDER") or os.getenv("LLM_PROVIDER", "stub")
     if provider.lower() == "deepseek" and (os.getenv("DEEPSEEK_API_KEY") or "").strip():
+        return "completed"
+    if orchestrator == "n8n":
         return "completed"
     return "stub"

@@ -222,11 +222,12 @@ services:
       MCP_SERVICE_ENABLED: "true"
       MCP_SERVICE_URL: http://mcp:8081/v1/mcp
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
-      AI_ORCHESTRATOR: ${AI_ORCHESTRATOR:-legacy}
-      AI_N8N_ENABLED: ${AI_N8N_ENABLED:-false}
+      AI_ORCHESTRATOR: ${AI_ORCHESTRATOR:-n8n}
+      AI_N8N_ENABLED: ${AI_N8N_ENABLED:-true}
       N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://n8n:5678/webhook/chat-orchestrator}
       AI_INTERNAL_API_KEY: ${AI_INTERNAL_API_KEY:-dev-internal-key}
       AI_N8N_WAIT_TIMEOUT_SECONDS: ${AI_N8N_WAIT_TIMEOUT_SECONDS:-90}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Djava.net.preferIPv4Stack=true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,7 +243,11 @@ services:
         condition: service_started
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:1.121.0
+    build:
+      context: .
+      dockerfile: docker/n8n/Dockerfile
+      target: runtime
+    entrypoint: ["/docker-entrypoint-custom.sh"]
     ports:
       - "5678:5678"
     environment:
@@ -252,6 +257,7 @@ services:
       WEBHOOK_URL: ${N8N_PUBLIC_WEBHOOK_URL:-http://localhost:5678/}
       GENERIC_TIMEZONE: Europe/Moscow
       N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       AI_INTERNAL_API_KEY: ${AI_INTERNAL_API_KEY:-dev-internal-key}
       POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
