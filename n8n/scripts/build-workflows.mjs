@@ -12,8 +12,11 @@ const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 const parseContext = read('parse-context.js');
 const mergeForRoute = bundleN8nCode(['lib/merge-for-route.core.js'], 'scripts/merge-for-route.runner.js');
 const runToolChain = read('run-tool-chain.js');
-const summarizeChain = read('summarize-chain.js');
-const toolStepParse = read('tool-step-parse.js');
+const summarizeChain = bundleN8nCode(
+  ['lib/notion-link.core.js', 'lib/summarize-chain.core.js'],
+  'scripts/summarize-chain.runner.js',
+);
+const toolStepParse = bundleN8nCode(['lib/enrich-write-step.core.js'], 'scripts/tool-step-parse.runner.js');
 const toolStepBuildError = read('tool-step-build-error.js');
 const toolStepReturnComplete = read('tool-step-return-complete.js');
 const toolStepReturnContinue = read('tool-step-return-continue.js');

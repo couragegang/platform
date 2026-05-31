@@ -44,6 +44,26 @@ export function notionToolArguments(toolName, hist, fallback) {
   return { query, q: query, content: query, message: query };
 }
 
+function nonBlank(value) {
+  return value != null && String(value).trim() !== '';
+}
+
+function hasStoredPayload(toolName, args) {
+  const n = (toolName || '').toLowerCase();
+  if (n.includes('write') || n.includes('create')) {
+    return nonBlank(args.content) || nonBlank(args.message) || nonBlank(args.title);
+  }
+  return nonBlank(args.query) || nonBlank(args.q) || nonBlank(args.content) || nonBlank(args.message);
+}
+
+/** После HITL — аргументы из pending approval (то, что показали пользователю на подтверждение). */
+export function resolveToolArguments(toolName, storedArgs, hist, fallback) {
+  if (storedArgs && typeof storedArgs === 'object' && hasStoredPayload(toolName, storedArgs)) {
+    return { ...storedArgs };
+  }
+  return notionToolArguments(toolName, hist, fallback);
+}
+
 const NOT_APPROVED = {
   skipInvoke: true,
   payload: {
@@ -62,7 +82,12 @@ export function prepareResumeInvoke(ctx, historyRaw, pending) {
   const connectorKey = 'notion';
   let toolMessage = buildToolContextMessage(history);
   if (!toolMessage?.trim()) toolMessage = ctx.message;
-  const toolArguments = notionToolArguments(toolName, history, toolMessage);
+  const toolArguments = resolveToolArguments(
+    toolName,
+    pending.toolArguments,
+    history,
+    toolMessage,
+  );
 
   return { toolName, connectorKey, toolArguments, skipInvoke: false };
 }

@@ -4,6 +4,7 @@ import {
   buildToolContextMessage,
   notionToolArguments,
   prepareResumeInvoke,
+  resolveToolArguments,
 } from '../lib/resume-prepare.core.js';
 
 describe('prepareResumeInvoke', () => {
@@ -34,9 +35,40 @@ describe('prepareResumeInvoke', () => {
     assert.equal(out.toolArguments.title, 'запиши в notion');
   });
 
+  it('uses stored toolArguments from pending approval on resume', () => {
+    const history = [{ role: 'user', content: 'запиши в notion' }];
+    const pending = {
+      status: 'approved',
+      toolName: 'notion_write_page',
+      toolArguments: {
+        title: 'Обед',
+        content: 'Пельмени — было вкусно',
+        message: 'Пельмени — было вкусно',
+      },
+    };
+
+    const out = prepareResumeInvoke(ctx, history, pending);
+
+    assert.equal(out.toolArguments.content, 'Пельмени — было вкусно');
+    assert.equal(out.toolArguments.title, 'Обед');
+  });
+
   it('uses ctx.message when history has no user turns', () => {
     const out = prepareResumeInvoke(ctx, [], { status: 'approved', toolName: 'notion_search' });
     assert.equal(out.toolArguments.query, 'fallback message');
+  });
+});
+
+describe('resolveToolArguments', () => {
+  it('prefers stored pending arguments over chat history', () => {
+    const args = resolveToolArguments(
+      'notion_write_page',
+      { title: 'T', content: 'Body' },
+      [{ role: 'user', content: 'chat noise' }],
+      '',
+    );
+    assert.equal(args.content, 'Body');
+    assert.equal(args.title, 'T');
   });
 });
 
