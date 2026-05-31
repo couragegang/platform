@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -85,6 +86,30 @@ function validateMergeNode(node) {
   return issues;
 }
 
+/** Static checks for n8n Code node jsCode (no ESM; must parse like n8n VM). */
+export function validateCodeJs(nodeName, jsCode) {
+  const issues = [];
+  if (typeof jsCode !== 'string' || !jsCode.trim()) {
+    return issues;
+  }
+
+  if (/\bimport\s/.test(jsCode)) {
+    issues.push(`Code node "${nodeName}": jsCode contains ESM import (re-run build-workflows)`);
+  }
+  if (/\bexport\s/.test(jsCode)) {
+    issues.push(`Code node "${nodeName}": jsCode contains ESM export (re-run build-workflows)`);
+  }
+
+  try {
+    // n8n wraps Code node js in an async function; top-level return/await is valid there.
+    new vm.Script(`async function __n8nCodeNode() {\n${jsCode}\n}`);
+  } catch (err) {
+    issues.push(`Code node "${nodeName}": jsCode syntax error (${err.message})`);
+  }
+
+  return issues;
+}
+
 export function validateWorkflowJson(workflow, spec) {
   const issues = [];
 
@@ -106,14 +131,8 @@ export function validateWorkflowJson(workflow, spec) {
     if (node.type === 'n8n-nodes-base.merge') {
       issues.push(...validateMergeNode(node));
     }
-    if (node.type === 'n8n-nodes-base.code' && typeof node.parameters?.jsCode === 'string') {
-      const code = node.parameters.jsCode;
-      if (/\bimport\s/.test(code)) {
-        issues.push(`Code node "${node.name}": jsCode contains ESM import (re-run build-workflows)`);
-      }
-      if (/\bexport\s/.test(code)) {
-        issues.push(`Code node "${node.name}": jsCode contains ESM export (re-run build-workflows)`);
-      }
+    if (node.type === 'n8n-nodes-base.code') {
+      issues.push(...validateCodeJs(node.name, node.parameters?.jsCode));
     }
   }
 

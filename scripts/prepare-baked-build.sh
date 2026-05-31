@@ -41,6 +41,7 @@ SPECS=(
   "audit-service:audit:audit-service.jar:audit.env"
   "knowledge-service:knowledge:knowledge-service.jar:knowledge.env"
   "mcp-notion::mcp-notion.jar:mcp-notion.env"
+  "mcp-trello::mcp-trello.jar:mcp-trello.env"
   "mcp-gateway:mcp:app.jar:mcp.env"
   "ai-runtime:ai:app.jar:ai.env"
   "bff-gateway::app.jar:bff.env"

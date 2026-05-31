@@ -18,6 +18,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Unit/coverage gate failed. Push aborted."
 }
 
+Write-Host "`n=== n8n workflow tests (when n8n/ changed) ===" -ForegroundColor Cyan
+& "$PlatformRoot\scripts\verify-n8n-workflows.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "n8n workflow gate failed. Push aborted."
+}
+
 if (-not $SkipE2e) {
     Write-Host "`n=== E2E (docker compose + pytest) ===" -ForegroundColor Cyan
     Push-Location $PlatformRoot

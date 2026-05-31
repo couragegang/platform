@@ -30,7 +30,7 @@ scripts/
 tests/connectors/{key}/
 ```
 
-**Эталоны:** `connectors/notion/` (полный), `connectors/trello/` (mock до `mcp-trello`).
+**Эталоны:** `connectors/notion/`, `connectors/trello/`.
 
 ### parse-runner
 

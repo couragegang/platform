@@ -157,6 +157,16 @@ cd platform
 
 Порог: branch coverage **≥ 80%** в каждом BC. По умолчанию проверяются только репозитории в `services/*` с ненулевым `git status --porcelain`; если изменений нет — гейт пропускается. Gradle в Docker (`gradle:8.10.2-jdk21`), кэш `~/.gradle` монтируется в контейнер. `push-if-green.ps1` вызывает скрипт с `-Parallel 4` (только изменённые BC).
 
+#### n8n workflows (перед push при изменениях в `n8n/`)
+
+```powershell
+cd platform
+.\scripts\verify-n8n-workflows.ps1          # если есть diff в n8n/ (или unpushed commits)
+.\scripts\verify-n8n-workflows.ps1 -Force   # всегда
+```
+
+Проверки: unit-тесты bundler/core, drift `build-workflows`, статическая валидация JSON (ESM-free jsCode, синтаксис Code nodes через `vm.Script`). CI: `.github/workflows/n8n-workflow-tests.yml`, deploy-n8n job `test`.
+
 #### E2E pytest (полный стек platform)
 
 Стек должен быть запущен (§3.3).
@@ -196,8 +206,8 @@ $env:SUITE = "smoke"        # или regress
 
 ```powershell
 cd platform
-.\scripts\push-if-green.ps1              # coverage + E2E + push соседних репо
-.\scripts\push-if-green.ps1 -SkipE2e    # только unit/coverage
+.\scripts\push-if-green.ps1              # coverage + n8n (if changed) + E2E + push соседних репо
+.\scripts\push-if-green.ps1 -SkipE2e    # coverage + n8n (if changed)
 ```
 
 ---

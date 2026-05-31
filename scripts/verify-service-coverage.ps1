@@ -24,6 +24,7 @@ $AllServices = @(
     "bff-gateway",
     "mcp-gateway",
     "mcp-notion",
+    "mcp-trello",
     "config-service",
     "knowledge-service"
 )

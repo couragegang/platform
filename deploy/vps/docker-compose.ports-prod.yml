@@ -32,3 +32,5 @@ services:
       N8N_PROXY_HOPS: "1"
   mcp-notion:
     ports: ["8091:8091"]
+  mcp-trello:
+    ports: ["8092:8092"]

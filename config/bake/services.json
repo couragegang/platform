@@ -34,6 +34,11 @@
     "dbName": "",
     "fragment": "mcp-notion.env"
   },
+  "mcp-trello": {
+    "jar": "mcp-trello.jar",
+    "dbName": "",
+    "fragment": "mcp-trello.env"
+  },
   "mcp-gateway": {
     "jar": "app.jar",
     "dbName": "mcp",

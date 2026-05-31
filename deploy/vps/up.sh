@@ -61,6 +61,7 @@ tag_key_for_compose() {
     audit) echo IMAGE_TAG_AUDIT ;;
     iam) echo IMAGE_TAG_IAM ;;
     mcp-notion) echo IMAGE_TAG_MCP_NOTION ;;
+    mcp-trello) echo IMAGE_TAG_MCP_TRELLO ;;
     mcp) echo IMAGE_TAG_MCP ;;
     knowledge) echo IMAGE_TAG_KNOWLEDGE ;;
     ai) echo IMAGE_TAG_AI ;;

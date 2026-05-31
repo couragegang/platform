@@ -7,6 +7,6 @@
 | connectorKey | compose service | host port | runtime_base_url (internal) | n8n L2 |
 |--------------|-----------------|-----------|---------------------------|--------|
 | notion | mcp-notion | 8091 | `http://mcp-notion:8091/v1/notion` | `chat-connector-notion` |
-| trello | *(mcp-trello TBD)* | 8092 *(резерв)* | `http://mcp-trello:8092/v1/trello` | `chat-connector-trello` (mock) |
+| trello | mcp-trello | 8092 | `http://mcp-trello:8092/v1/trello` | `chat-connector-trello` |
 
 Сервисы `mcp-{key}` добавляются в [`docker-compose.yml`](../../docker-compose.yml) и в Flyway seed `mcp-gateway` (`runtime_base_url`).

@@ -57,6 +57,10 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-notion:${IMAGE_TAG_MCP_NOTION:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
 
+  mcp-trello:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-trello:${IMAGE_TAG_MCP_TRELLO:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
+    restart: unless-stopped
+
   mcp:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG_MCP:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
@@ -70,6 +74,8 @@ services:
       audit:
         condition: service_started
       mcp-notion:
+        condition: service_started
+      mcp-trello:
         condition: service_started
 
   knowledge:

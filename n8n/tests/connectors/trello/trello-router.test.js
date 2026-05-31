@@ -18,8 +18,19 @@ describe('trello-router', () => {
     assert.equal(steps[0].arguments.list_name, 'To Do');
   });
 
-  it('resolves search intent', () => {
+  it('resolves search intent with query args', () => {
     assert.equal(resolveTrelloToolName('найди карточку баг в trello'), 'trello_search_cards');
+    const steps = resolveTrelloInternalSteps(
+      { connectorKey: 'trello', task: { message: 'найди карточку auth на доске Roadmap' } },
+      [],
+    );
+    assert.equal(steps[0].toolName, 'trello_search_cards');
+    assert.equal(steps[0].arguments.board_name, 'Roadmap');
+    assert.equal(steps[0].arguments.query, 'auth');
+  });
+
+  it('resolves move intent', () => {
+    assert.equal(resolveTrelloToolName('перемести карточку Task в колонку Done'), 'trello_move_card');
   });
 
   it('builds mock summary for create', () => {

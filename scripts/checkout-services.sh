@@ -33,6 +33,7 @@ else
     knowledge-service
     mcp-gateway
     mcp-notion
+    mcp-trello
     ai-runtime
     bff-gateway
   )

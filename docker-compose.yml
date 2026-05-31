@@ -147,6 +147,19 @@ services:
     environment:
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
 
+  mcp-trello:
+    <<: *runtime-env
+    build:
+      context: ../services/mcp-trello
+      dockerfile: Dockerfile
+      target: local
+      args:
+        <<: *build-args
+    ports:
+      - "8092:8092"
+    environment:
+      MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
+
   mcp:
     <<: *runtime-env
     build:
@@ -170,6 +183,7 @@ services:
       AUDIT_SERVICE_URL: http://audit:8086/v1/audit
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
       MCP_NOTION_RUNTIME_URL: http://mcp-notion:8091/v1/notion
+      MCP_TRELLO_RUNTIME_URL: http://mcp-trello:8092/v1/trello
     depends_on:
       postgres:
         condition: service_healthy
@@ -180,6 +194,8 @@ services:
       audit:
         condition: service_started
       mcp-notion:
+        condition: service_started
+      mcp-trello:
         condition: service_started
 
   knowledge:
@@ -262,6 +278,7 @@ services:
       POLICY_INTERNAL_API_KEY: ${POLICY_INTERNAL_API_KEY:-dev-internal-key}
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
       N8N_TOOL_STEP_WEBHOOK_URL: ${N8N_TOOL_STEP_WEBHOOK_URL:-http://n8n:5678/webhook/chat-tool-step}
+      TRELLO_CONNECTOR_MOCK: ${TRELLO_CONNECTOR_MOCK:-false}
     volumes:
       - n8n_data:/home/node/.n8n
 
