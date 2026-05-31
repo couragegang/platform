@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildRouteRequest } from '../lib/merge-for-route.core.js';
+import { buildRouteRequest } from '../../core/merge-for-route.core.js';
 
 describe('buildRouteRequest', () => {
   const ctx = {
@@ -15,7 +15,7 @@ describe('buildRouteRequest', () => {
       {
         items: [
           { connectorKey: 'notion', status: 'active' },
-          { connectorKey: 'slack', status: 'revoked' },
+          { connectorKey: 'trello', status: 'revoked' },
           { connectorKey: 'notion', status: 'error' },
         ],
       },

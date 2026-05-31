@@ -3,12 +3,12 @@ import { describe, it } from 'node:test';
 import {
   ensureNotionUrlsInReply,
   extractNotionUrls,
-} from '../lib/notion-link.core.js';
+} from '../connectors/notion/notion-link.core.js';
 import {
   buildDirectReply,
   finalizeChainReply,
   shouldUseDirectSummary,
-} from '../lib/summarize-chain.core.js';
+} from '../core/summarize-chain.core.js';
 
 describe('extractNotionUrls', () => {
   it('finds notion.so and notion.site URLs', () => {

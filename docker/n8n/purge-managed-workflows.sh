@@ -6,7 +6,7 @@ set -eu
 
 N8N_USER_FOLDER="${N8N_USER_FOLDER:-/home/node/.n8n}"
 DB="${N8N_USER_FOLDER}/database.sqlite"
-MANAGED_NAMES="chat-orchestrator chat-tool-step"
+MANAGED_NAMES="chat-orchestrator chat-tool-step chat-connector-notion chat-connector-trello"
 
 purge_managed_in_sqlite() {
   if [ ! -f "$DB" ] || ! command -v sqlite3 >/dev/null 2>&1; then
@@ -14,7 +14,7 @@ purge_managed_in_sqlite() {
     return 1
   fi
 
-  count="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');" 2>/dev/null || echo 0)"
+  count="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello');" 2>/dev/null || echo 0)"
   if [ "$count" = "0" ]; then
     echo "No managed workflows in DB to purge"
     return 0
@@ -25,21 +25,21 @@ purge_managed_in_sqlite() {
   # Связанные таблицы (n8n 1.x) — best-effort, игнорируем отсутствующие.
   sqlite3 "$DB" <<'EOSQL' 2>/dev/null || true
 DELETE FROM webhook_entity WHERE workflowId IN (
-  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello')
 );
 DELETE FROM shared_workflow WHERE workflowId IN (
-  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello')
 );
 DELETE FROM workflows_tags WHERE workflowId IN (
-  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello')
 );
 DELETE FROM workflow_history WHERE workflowId IN (
-  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step')
+  SELECT id FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello')
 );
-DELETE FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');
+DELETE FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello');
 EOSQL
 
-  remaining="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step');" 2>/dev/null || echo 0)"
+  remaining="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello');" 2>/dev/null || echo 0)"
   if [ "$remaining" != "0" ]; then
     echo "warn: $remaining managed workflow row(s) still in DB after purge" >&2
     return 1

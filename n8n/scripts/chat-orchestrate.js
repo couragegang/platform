@@ -1,5 +1,6 @@
 /**
- * @deprecated Monolithic single Code node — use multi-node workflow instead.
+ * @deprecated Monolithic single Code node — use build-workflows.mjs (ADR-003).
+ * L1 Notion heuristics removed in phase D; use n8n orchestrator + connector workflows.
  * Regenerate: node platform/n8n/scripts/build-workflow-json.mjs
  * Logic split: parse-context.js, router-merge.js, resume-prepare.js
  */

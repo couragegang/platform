@@ -8,32 +8,37 @@ Self-hosted оркестратор чата (образ **≥ 1.121.0**).
 
 Образ `ghcr.io/<owner>/n8n:<sha>-test|prod` ([`docker/n8n/Dockerfile`](../docker/n8n/Dockerfile)). Полный **Deploy to VPS** n8n **не** собирает (только BC-стек).
 
-Workflow из `/opt/workflows/*.json` **импортируются только при изменении** файлов в образе (sha256 bundle → `~/.n8n/.workflows-bundle.sha256`). Обычный `docker compose restart n8n` **не** пересоздаёт workflow — сохраняются executions/статистика. При деплое нового образа с другими JSON — один re-import (те же id `cgChatOrchestr01`, `cgChatToolStp01`, update in place). Дубликаты по имени удаляются без purge. Принудительно: `FORCE_WORKFLOW_REIMPORT=1` (полный purge + import).
+Workflow из `/opt/workflows/*.json` **импортируются только при изменении** файлов в образе (sha256 bundle → `~/.n8n/.workflows-bundle.sha256`). Обычный `docker compose restart n8n` **не** пересоздаёт workflow — сохраняются executions/статистика. При деплое нового образа с другими JSON — один re-import (id `cgChatOrchestr01`, `cgChatToolStp01`, `cgChatConnNot01`, `cgChatConnSlack01`, update in place). Дубликаты по имени удаляются без purge. Принудительно: `FORCE_WORKFLOW_REIMPORT=1` (полный purge + import).
 
 Порты: test **15678**, prod **5678** (см. [`deploy/vps/README.md`](../deploy/vps/README.md)).
 
 **UI через nginx (test):** `https://ai-test.valoriel.ru/n8n/` — location в [`deploy/vps/nginx-ai-test.valoriel.ru.server.conf`](../deploy/vps/nginx-ai-test.valoriel.ru.server.conf); baked env по контуру (`ai-test.valoriel.ru`, не `VPS_PUBLIC_BASE_URL`).
 
-## Почему два workflow (оба нужно импортировать)
+## Почему три workflow
 
-В n8n **один workflow = один webhook path**. У нас два разных HTTP-входа:
+В n8n **один workflow = один webhook path**:
 
 | Workflow | Кто вызывает | Зачем отдельно |
 |----------|--------------|----------------|
-| `chat-orchestrator` | `ai-runtime` (`N8N_WEBHOOK_URL`) | Сессия, маршрут DeepSeek, resume HITL, цикл по цепочке tools |
-| `chat-tool-step` | orchestrator (`N8N_TOOL_STEP_WEBHOOK_URL`, HTTP из ноды Run Tool Chain) | **Ровно один** tool: policy → HITL / deny / MCP |
+| `chat-orchestrator` | `ai-runtime` (`N8N_WEBHOOK_URL`) | Сессия, маршрут DeepSeek, resume HITL, цепочка шагов |
+| `chat-connector-notion` | orchestrator (шаги Notion) | Mini-router + enrich; внутри N× `chat-tool-step` |
+| `chat-tool-step` | connector / прочие коннекторы | **Один** tool: policy → HITL / MCP (без Notion-логики) |
 
-Объединить в один JSON нельзя без потери модели «отдельный пайплайн на шаг»: orchestrator для N tools делает N POST на `/webhook/chat-tool-step` — так проще отладка, таймауты и повтор шага. Оба файла кладутся в образ n8n (`/opt/workflows/*.json`); entrypoint импортирует **все** `*.json` при первом старте volume.
+Все `workflows/*.json` в образе n8n; entrypoint импортирует при смене bundle sha256.
 
 ## Workflows (текущее и целевое)
 
 | Файл | Webhook | Назначение |
 |------|---------|------------|
 | [`workflows/chat-orchestrator-v0.json`](workflows/chat-orchestrator-v0.json) | `/webhook/chat-orchestrator` | Маршрутизация DeepSeek, цепочка шагов, LLM-ответ (webhook **onReceived** — ответ сразу, результат через callback в ai-runtime) |
-| [`workflows/chat-tool-step.json`](workflows/chat-tool-step.json) | `/webhook/chat-tool-step` | **Один** tool: policy → HITL / MCP invoke |
-| `chat-connector-notion` *(план, ADR-003)* | `/webhook/chat-connector-notion` | Задание на Notion: внутренний mini-router (search/write/edit), без Notion-логики в orchestrator |
+| [`workflows/chat-tool-step.json`](workflows/chat-tool-step.json) | `/webhook/chat-tool-step` | **Один** tool: policy → HITL / MCP invoke (generic) |
+| [`workflows/chat-connector-notion.json`](workflows/chat-connector-notion.json) | `/webhook/chat-connector-notion` | **ADR-003 фаза A:** task/toolName → mini-router → внутренние tool-step |
 
-Сейчас: цепочка из N tools = N вызовов `chat-tool-step`. **Целевое (ADR-003):** orchestrator → `chat-connector-{key}` → внутренние tool-step; plan HITL перед кросс-MCP. См. [`cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md`](../../cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md).
+Orchestrator: `Run Connector Chain` → `chat-connector-{key}` (notion, trello); неизвестные коннекторы → `chat-tool-step`. **Фазы B–D:** plan HITL, ветвление, L1 без tool-эвристик.
+
+- ADR: [`cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md`](../../cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md)
+- **Новый MCP (полный чеклист):** [`cursor-context/docs/how-to-add-mcp-connector.md`](../../cursor-context/docs/how-to-add-mcp-connector.md)
+- **Только n8n L2:** [`docs/new-mcp-connector.md`](docs/new-mcp-connector.md)
 
 ## Схема (визуальные ноды)
 
@@ -41,7 +46,7 @@ Workflow из `/opt/workflows/*.json` **импортируются только 
 chat-orchestrator:
   Webhook → Parse Context → IF HITL Resume? → …
          → Load History / Installations / Knowledge → LLM Route
-         → IF Tool Chain? → Run Tool Chain (HTTP × N → chat-tool-step)
+         → IF Tool Chain? → Run Connector Chain (Notion → chat-connector-notion; иначе chat-tool-step)
          → Summarize / LLM Chat → Callback ai-runtime
 
 chat-tool-step (на каждый шаг):

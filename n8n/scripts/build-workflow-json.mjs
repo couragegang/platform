@@ -1,5 +1,6 @@
 /**
- * Generates platform/n8n/workflows/chat-orchestrator-v0.json (multi-node canvas).
+ * @deprecated Legacy generator (uses router-merge without L1 heuristics since ADR-003 phase D).
+ * Canonical build: node scripts/build-workflows.mjs
  */
 import fs from 'fs';
 import path from 'path';

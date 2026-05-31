@@ -11,7 +11,12 @@ const workflowsDir = path.join(n8nRoot, 'workflows');
 describe('build-workflows sync', () => {
   it('regenerated JSON matches committed artifacts', () => {
     const before = new Map(
-      ['chat-orchestrator-v0.json', 'chat-tool-step.json'].map((f) => [
+      [
+        'chat-orchestrator-v0.json',
+        'chat-tool-step.json',
+        'chat-connector-notion.json',
+        'chat-connector-trello.json',
+      ].map((f) => [
         f,
         fs.readFileSync(path.join(workflowsDir, f), 'utf8'),
       ]),

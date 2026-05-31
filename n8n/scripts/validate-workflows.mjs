@@ -11,13 +11,31 @@ const WORKFLOW_SPECS = [
     file: 'chat-orchestrator-v0.json',
     id: 'cgChatOrchestr01',
     webhookPath: 'chat-orchestrator',
-    requiredNodes: ['Merge for Route', 'IF HITL Resume?', 'Prepare Route Body'],
+    requiredNodes: [
+      'Merge for Route',
+      'IF HITL Resume?',
+      'Prepare Route Body',
+      'Plan Gate',
+      'IF Needs Plan Approval?',
+    ],
   },
   {
     file: 'chat-tool-step.json',
     id: 'cgChatToolStp01',
     webhookPath: 'chat-tool-step',
     requiredNodes: ['IF Valid Step?', 'Policy Evaluate'],
+  },
+  {
+    file: 'chat-connector-notion.json',
+    id: 'cgChatConnNot01',
+    webhookPath: 'chat-connector-notion',
+    requiredNodes: ['Parse Connector Task', 'Run Internal Tools'],
+  },
+  {
+    file: 'chat-connector-trello.json',
+    id: 'cgChatConnTrello01',
+    webhookPath: 'chat-connector-trello',
+    requiredNodes: ['Parse Connector Task', 'Run Internal Tools'],
   },
 ];
 

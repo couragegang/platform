@@ -11,7 +11,7 @@ fi
 N8N_USER_FOLDER="${N8N_USER_FOLDER:-/home/node/.n8n}"
 DB="${N8N_USER_FOLDER}/database.sqlite"
 HASH_MARKER="${N8N_USER_FOLDER}/.workflows-bundle.sha256"
-MANAGED_IDS="cgChatOrchestr01 cgChatToolStp01"
+MANAGED_IDS="cgChatOrchestr01 cgChatToolStp01 cgChatConnNot01 cgChatConnTrello01"
 
 bundle_hash() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -39,9 +39,11 @@ EOSQL
 remove_duplicate_managed() {
   [ -f "$DB" ] || return 0
   command -v sqlite3 >/dev/null 2>&1 || return 0
-  for name in chat-orchestrator chat-tool-step; do
+  for name in chat-orchestrator chat-tool-step chat-connector-notion chat-connector-trello; do
     keep_id="cgChatOrchestr01"
     [ "$name" = "chat-tool-step" ] && keep_id="cgChatToolStp01"
+    [ "$name" = "chat-connector-notion" ] && keep_id="cgChatConnNot01"
+    [ "$name" = "chat-connector-trello" ] && keep_id="cgChatConnTrello01"
     sqlite3 "$DB" "SELECT id FROM workflow_entity WHERE name='$name' AND id != '$keep_id';" 2>/dev/null \
       | while IFS= read -r extra_id; do
         [ -z "$extra_id" ] && continue
@@ -54,8 +56,8 @@ remove_duplicate_managed() {
 managed_workflows_present() {
   [ -f "$DB" ] || return 1
   command -v sqlite3 >/dev/null 2>&1 || return 1
-  present="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE id IN ('cgChatOrchestr01','cgChatToolStp01');" 2>/dev/null || echo 0)"
-  [ "$present" = "2" ]
+  present="$(sqlite3 "$DB" "SELECT COUNT(*) FROM workflow_entity WHERE id IN ('cgChatOrchestr01','cgChatToolStp01','cgChatConnNot01','cgChatConnTrello01');" 2>/dev/null || echo 0)"
+  [ "$present" = "4" ]
 }
 
 ensure_managed_active() {
@@ -64,7 +66,7 @@ ensure_managed_active() {
   for wf_id in $MANAGED_IDS; do
     sqlite3 "$DB" "UPDATE workflow_entity SET active = 1 WHERE id = '$wf_id';" 2>/dev/null || true
   done
-  sqlite3 "$DB" "UPDATE workflow_entity SET active = 0 WHERE name IN ('chat-orchestrator','chat-tool-step') AND id NOT IN ('cgChatOrchestr01','cgChatToolStp01');" 2>/dev/null || true
+  sqlite3 "$DB" "UPDATE workflow_entity SET active = 0 WHERE name IN ('chat-orchestrator','chat-tool-step','chat-connector-notion','chat-connector-trello') AND id NOT IN ('cgChatOrchestr01','cgChatToolStp01','cgChatConnNot01','cgChatConnTrello01');" 2>/dev/null || true
 }
 
 mkdir -p "$N8N_USER_FOLDER"

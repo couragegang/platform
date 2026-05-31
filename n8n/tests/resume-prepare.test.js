@@ -57,6 +57,19 @@ describe('prepareResumeInvoke', () => {
     const out = prepareResumeInvoke(ctx, [], { status: 'approved', toolName: 'notion_search' });
     assert.equal(out.toolArguments.query, 'fallback message');
   });
+
+  it('returns plan resume mode for approved plan pending', () => {
+    const out = prepareResumeInvoke(ctx, [], {
+      status: 'approved',
+      approvalKind: 'plan',
+      toolName: 'connector_plan',
+      plannedSteps: [{ connectorKey: 'notion', label: 'A' }, { connectorKey: 'trello', label: 'B' }],
+      toolArguments: { mode: 'connector_chain', steps: [{ connectorKey: 'notion' }] },
+    });
+    assert.equal(out.resumeMode, 'plan');
+    assert.equal(out.skipInvoke, true);
+    assert.equal(out.plan.steps.length, 2);
+  });
 });
 
 describe('resolveToolArguments', () => {

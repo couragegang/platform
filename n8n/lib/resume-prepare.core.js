@@ -3,6 +3,8 @@
  * Used by unit tests; bundled into n8n Code node via build-workflows.mjs.
  */
 
+import { extractApprovedPlan } from '../core/plan-approval.core.js';
+
 export function normalizeHistory(historyRaw) {
   return (historyRaw || [])
     .filter((m) => m.role && m.content)
@@ -88,9 +90,18 @@ export function prepareResumeInvoke(ctx, historyRaw, pending) {
     return NOT_APPROVED;
   }
 
+  const plan = extractApprovedPlan(pending);
+  if (plan) {
+    return {
+      resumeMode: 'plan',
+      plan,
+      skipInvoke: true,
+    };
+  }
+
   const history = normalizeHistory(historyRaw);
   const toolName = pending.toolName;
-  const connectorKey = 'notion';
+  const connectorKey = pending.connectorKey || 'notion';
   let toolMessage = buildToolContextMessage(history);
   if (!toolMessage?.trim()) toolMessage = ctx.message;
   const toolArguments = resolveToolArguments(
@@ -100,5 +111,5 @@ export function prepareResumeInvoke(ctx, historyRaw, pending) {
     toolMessage,
   );
 
-  return { toolName, connectorKey, toolArguments, skipInvoke: false };
+  return { resumeMode: 'tool', toolName, connectorKey, toolArguments, skipInvoke: false };
 }

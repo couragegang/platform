@@ -10,20 +10,55 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 
 const parseContext = read('parse-context.js');
-const mergeForRoute = bundleN8nCode(['lib/merge-for-route.core.js'], 'scripts/merge-for-route.runner.js');
-const runToolChain = read('run-tool-chain.js');
+const mergeForRoute = bundleN8nCode(['core/merge-for-route.core.js'], 'scripts/merge-for-route.runner.js');
+const runToolChain = bundleN8nCode(
+  ['core/plan-branching.core.js', 'core/run-connector-chain.core.js'],
+  'scripts/run-connector-chain.runner.js',
+);
 const summarizeChain = bundleN8nCode(
-  ['lib/notion-link.core.js', 'lib/summarize-chain.core.js'],
+  ['connectors/notion/notion-link.core.js', 'core/summarize-chain.core.js'],
   'scripts/summarize-chain.runner.js',
 );
-const toolStepParse = bundleN8nCode(
-  ['lib/enrich-write-step.core.js', 'lib/enrich-edit-step.core.js'],
-  'scripts/tool-step-parse.runner.js',
+const toolStepParse = read('tool-step-parse.runner.js');
+const connectorNotionParse = bundleN8nCode(
+  ['connectors/notion/notion-router.core.js'],
+  'scripts/connector-notion-parse.runner.js',
+);
+const connectorNotionRun = bundleN8nCode(
+  [
+    'connectors/notion/notion-router.core.js',
+    'connectors/notion/notion-enrich.core.js',
+    'connectors/notion/notion-search-outcome.core.js',
+  ],
+  'scripts/connector-notion-run.runner.js',
+);
+const connectorTrelloParse = bundleN8nCode(
+  ['connectors/trello/trello-router.core.js'],
+  'scripts/connector-trello-parse.runner.js',
+);
+const connectorTrelloRun = bundleN8nCode(
+  ['connectors/trello/trello-router.core.js'],
+  'scripts/connector-trello-run.runner.js',
 );
 const toolStepBuildError = read('tool-step-build-error.js');
 const toolStepReturnComplete = read('tool-step-return-complete.js');
 const toolStepReturnContinue = read('tool-step-return-continue.js');
-const resumePrepare = bundleN8nCode(['lib/resume-prepare.core.js'], 'scripts/resume-prepare.runner.js');
+const resumePrepare = bundleN8nCode(
+  ['core/plan-approval.core.js', 'lib/resume-prepare.core.js'],
+  'scripts/resume-prepare.runner.js',
+);
+const planGate = bundleN8nCode(
+  ['core/plan-approval.core.js'],
+  'scripts/plan-gate.runner.js',
+);
+const planPendingBody = bundleN8nCode(
+  ['core/plan-approval.core.js'],
+  'scripts/plan-pending-body.runner.js',
+);
+const resumeRunChain = bundleN8nCode(
+  ['core/plan-branching.core.js', 'core/run-connector-chain.core.js'],
+  'scripts/resume-run-chain.runner.js',
+);
 
 const nid = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -139,6 +174,28 @@ const orchestrator = {
       position: [1020, 340],
     },
     codeNode('Resume Prepare', [1220, 340], resumePrepare),
+    {
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [
+            {
+              id: 'plan-resume',
+              leftValue: '={{ $("Resume Prepare").first().json.resumeMode === "plan" ? "yes" : "" }}',
+              rightValue: '',
+              operator: { type: 'string', operation: 'notEmpty', singleValue: true },
+            },
+          ],
+          combinator: 'and',
+        },
+      },
+      id: 'if-plan-resume',
+      name: 'IF Plan Resume?',
+      type: 'n8n-nodes-base.if',
+      typeVersion: 2.2,
+      position: [1420, 240],
+    },
+    codeNode('Resume Run Connector Chain', [1620, 160], resumeRunChain),
     httpPost(
       'Resume MCP',
       [1420, 340],
@@ -204,7 +261,8 @@ return [{ json: payload }];`),
           conditions: [
             {
               id: 'chain',
-              leftValue: '={{ $json.mode === "tool_chain" && ($json.steps || []).length > 0 ? "yes" : "" }}',
+              leftValue:
+                '={{ ($json.mode === "tool_chain" || $json.mode === "connector_chain") && ($json.steps || []).length > 0 ? "yes" : "" }}',
               rightValue: '',
               operator: { type: 'string', operation: 'notEmpty', singleValue: true },
             },
@@ -218,7 +276,100 @@ return [{ json: payload }];`),
       typeVersion: 2.2,
       position: [1640, 640],
     },
-    codeNode('Run Tool Chain', [1860, 560], runToolChain),
+    codeNode('Plan Gate', [1860, 480], planGate),
+    {
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [
+            {
+              id: 'plan-hitl',
+              leftValue: '={{ $json.needsPlanApproval ? "yes" : "" }}',
+              rightValue: '',
+              operator: { type: 'string', operation: 'notEmpty', singleValue: true },
+            },
+          ],
+          combinator: 'and',
+        },
+      },
+      id: 'if-needs-plan-approval',
+      name: 'IF Needs Plan Approval?',
+      type: 'n8n-nodes-base.if',
+      typeVersion: 2.2,
+      position: [2060, 480],
+    },
+    codeNode('Build Plan Pending Body', [2280, 400], planPendingBody),
+    httpPost(
+      'Create Plan Pending',
+      [2500, 400],
+      `={{ ${ctx}.policyBase }}/internal/pending-approvals`,
+      `={{ JSON.stringify($('Build Plan Pending Body').first().json.pendingBody) }}`,
+      [
+        { name: 'X-Policy-Internal-Key', value: `={{ ${ctx}.policyKey }}` },
+        { name: 'Content-Type', value: 'application/json' },
+      ],
+    ),
+    httpPost(
+      'Format Plan Approval',
+      [2720, 400],
+      `={{ ${ctx}.aiBase }}/internal/hitl/format-plan-approval`,
+      `={{ JSON.stringify({
+        steps: $('Build Plan Pending Body').first().json.plan.steps || [],
+        reasoning: $('Build Plan Pending Body').first().json.plan.reasoning
+      }) }}`,
+      [
+        { name: 'X-Ai-Internal-Key', value: `={{ ${ctx}.aiKey }}` },
+        { name: 'Content-Type', value: 'application/json' },
+      ],
+    ),
+    httpPost(
+      'Callback Plan Awaiting',
+      [2940, 400],
+      `={{ ${ctx}.aiBase }}/internal/runs/{{ ${ctx}.runId }}/complete`,
+      `={{ JSON.stringify({
+        status: "awaiting_plan_approval",
+        reply: $("Format Plan Approval").first().json.message,
+        pendingApprovalId: $("Create Plan Pending").first().json.body || $("Create Plan Pending").first().json,
+        approvalKind: "plan"
+      }) }}`,
+      [
+        { name: 'X-Ai-Internal-Key', value: `={{ ${ctx}.aiKey }}` },
+        { name: 'Content-Type', value: 'application/json' },
+      ],
+    ),
+    codeNode(
+      'Done In Plan Step',
+      [3160, 400],
+      `return [{ json: { status: 'completed', reply: 'План отправлен на подтверждение (callback уже отправлен).' } }];`,
+    ),
+    codeNode('Run Connector Chain', [2280, 560], runToolChain),
+    {
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [
+            {
+              id: 'aborted',
+              leftValue: '={{ $json.aborted ? "yes" : "" }}',
+              rightValue: '',
+              operator: { type: 'string', operation: 'notEmpty', singleValue: true },
+            },
+          ],
+          combinator: 'and',
+        },
+      },
+      id: 'if-chain-aborted',
+      name: 'IF Chain Aborted?',
+      type: 'n8n-nodes-base.if',
+      typeVersion: 2.2,
+      position: [2500, 480],
+    },
+    codeNode(
+      'Build Aborted Callback',
+      [2720, 400],
+      `const row = $input.first().json;
+return [{ json: { status: row.status || 'error', reply: row.reply || row.error || 'Цепочка прервана', runId: $('Parse Context').first().json.runId, aiBase: $('Parse Context').first().json.aiBase, aiKey: $('Parse Context').first().json.aiKey } }];`,
+    ),
     {
       parameters: {
         conditions: {
@@ -268,7 +419,7 @@ return [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.a
       'Callback ai-runtime',
       [2680, 700],
       `={{ $json.aiBase + '/internal/runs/' + $json.runId + '/complete' }}`,
-      `={{ JSON.stringify({ status: $json.status, reply: $json.reply, pendingApprovalId: $json.pendingApprovalId, toolName: $json.toolName, connectorKey: $json.connectorKey }) }}`,
+      `={{ JSON.stringify({ status: $json.status, reply: $json.reply, pendingApprovalId: $json.pendingApprovalId, approvalKind: $json.approvalKind, toolName: $json.toolName, connectorKey: $json.connectorKey }) }}`,
       [
         { name: 'X-Ai-Internal-Key', value: '={{ $json.aiKey }}' },
         { name: 'Content-Type', value: 'application/json' },
@@ -294,7 +445,14 @@ return [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.a
     'Resume History': { main: [[{ node: 'Resume Merge', type: 'main', index: 0 }]] },
     'Resume Pending': { main: [[{ node: 'Resume Merge', type: 'main', index: 1 }]] },
     'Resume Merge': { main: [[{ node: 'Resume Prepare', type: 'main', index: 0 }]] },
-    'Resume Prepare': { main: [[{ node: 'Resume MCP', type: 'main', index: 0 }]] },
+    'Resume Prepare': { main: [[{ node: 'IF Plan Resume?', type: 'main', index: 0 }]] },
+    'IF Plan Resume?': {
+      main: [
+        [{ node: 'Resume Run Connector Chain', type: 'main', index: 0 }],
+        [{ node: 'Resume MCP', type: 'main', index: 0 }],
+      ],
+    },
+    'Resume Run Connector Chain': { main: [[{ node: 'IF Chain Aborted?', type: 'main', index: 0 }]] },
     'Resume MCP': { main: [[{ node: 'Resume Callback', type: 'main', index: 0 }]] },
     'Load History': { main: [[{ node: 'Merge for Route', type: 'main', index: 0 }]] },
     'Load Installations': { main: [[{ node: 'Merge for Route', type: 'main', index: 1 }]] },
@@ -304,11 +462,31 @@ return [{ json: { ...payload, runId: ctx.runId, aiBase: ctx.aiBase, aiKey: ctx.a
     'LLM Route': { main: [[{ node: 'IF Tool Chain?', type: 'main', index: 0 }]] },
     'IF Tool Chain?': {
       main: [
-        [{ node: 'Run Tool Chain', type: 'main', index: 0 }],
+        [{ node: 'Plan Gate', type: 'main', index: 0 }],
         [{ node: 'LLM Chat', type: 'main', index: 0 }],
       ],
     },
-    'Run Tool Chain': { main: [[{ node: 'IF Completed In Step?', type: 'main', index: 0 }]] },
+    'Plan Gate': { main: [[{ node: 'IF Needs Plan Approval?', type: 'main', index: 0 }]] },
+    'IF Needs Plan Approval?': {
+      main: [
+        [
+          { node: 'Build Plan Pending Body', type: 'main', index: 0 },
+        ],
+        [{ node: 'Run Connector Chain', type: 'main', index: 0 }],
+      ],
+    },
+    'Build Plan Pending Body': { main: [[{ node: 'Create Plan Pending', type: 'main', index: 0 }]] },
+    'Create Plan Pending': { main: [[{ node: 'Format Plan Approval', type: 'main', index: 0 }]] },
+    'Format Plan Approval': { main: [[{ node: 'Callback Plan Awaiting', type: 'main', index: 0 }]] },
+    'Callback Plan Awaiting': { main: [[{ node: 'Done In Plan Step', type: 'main', index: 0 }]] },
+    'Run Connector Chain': { main: [[{ node: 'IF Chain Aborted?', type: 'main', index: 0 }]] },
+    'IF Chain Aborted?': {
+      main: [
+        [{ node: 'Build Aborted Callback', type: 'main', index: 0 }],
+        [{ node: 'IF Completed In Step?', type: 'main', index: 0 }],
+      ],
+    },
+    'Build Aborted Callback': { main: [[{ node: 'Build Callback', type: 'main', index: 0 }]] },
     'IF Completed In Step?': {
       main: [
         [{ node: 'Done In Tool Step', type: 'main', index: 0 }],
@@ -536,7 +714,145 @@ const toolStep = {
   tags: [],
 };
 
+const connectorNotion = {
+  id: 'cgChatConnNot01',
+  name: 'chat-connector-notion',
+  nodes: [
+    {
+      parameters: {
+        httpMethod: 'POST',
+        path: 'chat-connector-notion',
+        responseMode: 'lastNode',
+        options: {},
+      },
+      id: 'webhook-connector-notion',
+      name: 'Webhook',
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 2,
+      position: [200, 400],
+      webhookId: 'chat-connector-notion',
+    },
+    codeNode('Parse Connector Task', [400, 400], connectorNotionParse),
+    {
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [
+            {
+              id: 'valid',
+              leftValue: '={{ $("Parse Connector Task").first().json.valid ? "yes" : "" }}',
+              rightValue: '',
+              operator: { type: 'string', operation: 'notEmpty', singleValue: true },
+            },
+          ],
+          combinator: 'and',
+        },
+      },
+      id: 'if-valid-connector',
+      name: 'IF Valid Task?',
+      type: 'n8n-nodes-base.if',
+      typeVersion: 2.2,
+      position: [600, 400],
+    },
+    codeNode(
+      'Build Connector Error',
+      [820, 280],
+      `const prep = $('Parse Connector Task').first().json;
+return [{ json: { action: 'continue', ok: false, error: prep.error, stepResult: { ok: false, error: prep.error } } }];`,
+    ),
+    codeNode('Run Internal Tools', [820, 480], connectorNotionRun),
+  ],
+  connections: {
+    Webhook: { main: [[{ node: 'Parse Connector Task', type: 'main', index: 0 }]] },
+    'Parse Connector Task': { main: [[{ node: 'IF Valid Task?', type: 'main', index: 0 }]] },
+    'IF Valid Task?': {
+      main: [
+        [{ node: 'Run Internal Tools', type: 'main', index: 0 }],
+        [{ node: 'Build Connector Error', type: 'main', index: 0 }],
+      ],
+    },
+  },
+  active: true,
+  settings: { executionOrder: 'v1' },
+  versionId: 'chat-connector-notion-v1',
+  meta: { templateCredsSetupCompleted: true },
+  tags: [],
+};
+
 const outDir = path.join(__dirname, '..', 'workflows');
 fs.writeFileSync(path.join(outDir, 'chat-orchestrator-v0.json'), JSON.stringify(orchestrator, null, 2));
 fs.writeFileSync(path.join(outDir, 'chat-tool-step.json'), JSON.stringify(toolStep, null, 2));
-console.log('Wrote orchestrator + tool-step workflows');
+fs.writeFileSync(
+  path.join(outDir, 'chat-connector-notion.json'),
+  JSON.stringify(connectorNotion, null, 2),
+);
+const connectorTrello = {
+  id: 'cgChatConnTrello01',
+  name: 'chat-connector-trello',
+  nodes: [
+    {
+      parameters: {
+        httpMethod: 'POST',
+        path: 'chat-connector-trello',
+        responseMode: 'lastNode',
+        options: {},
+      },
+      id: 'webhook-connector-trello',
+      name: 'Webhook',
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 2,
+      position: [200, 400],
+      webhookId: 'chat-connector-trello',
+    },
+    codeNode('Parse Connector Task', [400, 400], connectorTrelloParse),
+    {
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [
+            {
+              id: 'valid',
+              leftValue: '={{ $("Parse Connector Task").first().json.valid ? "yes" : "" }}',
+              rightValue: '',
+              operator: { type: 'string', operation: 'notEmpty', singleValue: true },
+            },
+          ],
+          combinator: 'and',
+        },
+      },
+      id: 'if-valid-trello',
+      name: 'IF Valid Task?',
+      type: 'n8n-nodes-base.if',
+      typeVersion: 2.2,
+      position: [600, 400],
+    },
+    codeNode(
+      'Build Connector Error',
+      [820, 280],
+      `const prep = $('Parse Connector Task').first().json;
+return [{ json: { action: 'continue', ok: false, error: prep.error, stepResult: { ok: false, error: prep.error } } }];`,
+    ),
+    codeNode('Run Internal Tools', [820, 480], connectorTrelloRun),
+  ],
+  connections: {
+    Webhook: { main: [[{ node: 'Parse Connector Task', type: 'main', index: 0 }]] },
+    'Parse Connector Task': { main: [[{ node: 'IF Valid Task?', type: 'main', index: 0 }]] },
+    'IF Valid Task?': {
+      main: [
+        [{ node: 'Run Internal Tools', type: 'main', index: 0 }],
+        [{ node: 'Build Connector Error', type: 'main', index: 0 }],
+      ],
+    },
+  },
+  active: true,
+  settings: { executionOrder: 'v1' },
+  versionId: 'chat-connector-trello-v1',
+  meta: { templateCredsSetupCompleted: true },
+  tags: [],
+};
+
+fs.writeFileSync(
+  path.join(outDir, 'chat-connector-trello.json'),
+  JSON.stringify(connectorTrello, null, 2),
+);
+console.log('Wrote orchestrator + tool-step + connector-notion + connector-trello workflows');

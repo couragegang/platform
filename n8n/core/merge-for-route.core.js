@@ -1,17 +1,13 @@
 /**
- * Legacy alias for Merge for Route (ADR-003 phase D).
- * No connector tool heuristics — only builds routeRequest for LLM router.
- * Canonical logic: core/merge-for-route.core.js
+ * Pure logic for Prepare Route Body (chat-orchestrator).
+ * Used by unit tests; bundled into n8n Code node via build-workflows.mjs.
  */
-const ctx = $('Parse Context').first().json;
-const items = $input.all().map((i) => i.json);
-
-function buildRouteRequest(ctxIn, itemsIn) {
+export function buildRouteRequest(ctx, items) {
   let historyItems = [];
   let installations = { items: [] };
   let knowledge = { items: [] };
 
-  for (const j of itemsIn) {
+  for (const j of items) {
     if (Array.isArray(j.items) && j.items[0]?.role) historyItems = j.items;
     else if (Array.isArray(j.items) && j.items[0]?.connectorKey !== undefined) installations = j;
     else if (Array.isArray(j.items)) knowledge = j;
@@ -33,14 +29,12 @@ function buildRouteRequest(ctxIn, itemsIn) {
     .join('\n');
 
   return {
-    ...ctxIn,
+    ...ctx,
     routeRequest: {
-      message: ctxIn.message,
+      message: ctx.message,
       messages,
       activeConnectorKeys,
       knowledgeContext: knowledgeContext || null,
     },
   };
 }
-
-return [{ json: buildRouteRequest(ctx, items) }];
