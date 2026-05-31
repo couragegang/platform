@@ -36,6 +36,9 @@ export function lastUserContent(hist) {
 export function notionToolArguments(toolName, hist, fallback) {
   const n = (toolName || '').toLowerCase();
   const lastUser = lastUserContent(hist);
+  if (n.includes('edit')) {
+    return { find_text: '', new_text: '', message: lastUser || fallback || '' };
+  }
   if (n.includes('write') || n.includes('create')) {
     const content = fallback?.trim() || lastUser || '';
     return { content, message: content, title: lastUser };
@@ -50,6 +53,14 @@ function nonBlank(value) {
 
 function hasStoredPayload(toolName, args) {
   const n = (toolName || '').toLowerCase();
+  if (n.includes('edit')) {
+    return (
+      nonBlank(args.find_text) ||
+      nonBlank(args.old_text) ||
+      nonBlank(args.new_text) ||
+      nonBlank(args.replace_with)
+    );
+  }
   if (n.includes('write') || n.includes('create')) {
     return nonBlank(args.content) || nonBlank(args.message) || nonBlank(args.title);
   }

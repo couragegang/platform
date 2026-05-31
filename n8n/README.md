@@ -25,14 +25,15 @@ Workflow из `/opt/workflows/*.json` **импортируются только 
 
 Объединить в один JSON нельзя без потери модели «отдельный пайплайн на шаг»: orchestrator для N tools делает N POST на `/webhook/chat-tool-step` — так проще отладка, таймауты и повтор шага. Оба файла кладутся в образ n8n (`/opt/workflows/*.json`); entrypoint импортирует **все** `*.json` при первом старте volume.
 
-## Два workflow
+## Workflows (текущее и целевое)
 
 | Файл | Webhook | Назначение |
 |------|---------|------------|
 | [`workflows/chat-orchestrator-v0.json`](workflows/chat-orchestrator-v0.json) | `/webhook/chat-orchestrator` | Маршрутизация DeepSeek, цепочка шагов, LLM-ответ (webhook **onReceived** — ответ сразу, результат через callback в ai-runtime) |
 | [`workflows/chat-tool-step.json`](workflows/chat-tool-step.json) | `/webhook/chat-tool-step` | **Один** tool: policy → HITL / MCP invoke |
+| `chat-connector-notion` *(план, ADR-003)* | `/webhook/chat-connector-notion` | Задание на Notion: внутренний mini-router (search/write/edit), без Notion-логики в orchestrator |
 
-Цепочка из N tools = N последовательных вызовов `chat-tool-step` из orchestrator.
+Сейчас: цепочка из N tools = N вызовов `chat-tool-step`. **Целевое (ADR-003):** orchestrator → `chat-connector-{key}` → внутренние tool-step; plan HITL перед кросс-MCP. См. [`cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md`](../../cursor-context/docs/adr-003-n8n-connector-sub-orchestrators.md).
 
 ## Схема (визуальные ноды)
 

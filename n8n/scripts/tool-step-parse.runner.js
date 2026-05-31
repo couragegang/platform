@@ -33,7 +33,7 @@ if (!step?.connectorKey || !step?.toolName) {
   return [{ json: { ...base, valid: false, error: 'Invalid tool step payload' } }];
 }
 
-const toolArgs = enrichWriteArguments(step.toolName, step.arguments || {}, priorResults);
+const toolArgs = enrichToolStepArguments(step.toolName, step.arguments || {}, priorResults);
 return [
   {
     json: {
@@ -50,6 +50,7 @@ return [
         arguments: toolArgs,
         stepIndex,
         totalSteps,
+        workspaceId: body.workspaceId,
       },
     },
   },

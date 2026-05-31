@@ -16,7 +16,10 @@ const summarizeChain = bundleN8nCode(
   ['lib/notion-link.core.js', 'lib/summarize-chain.core.js'],
   'scripts/summarize-chain.runner.js',
 );
-const toolStepParse = bundleN8nCode(['lib/enrich-write-step.core.js'], 'scripts/tool-step-parse.runner.js');
+const toolStepParse = bundleN8nCode(
+  ['lib/enrich-write-step.core.js', 'lib/enrich-edit-step.core.js'],
+  'scripts/tool-step-parse.runner.js',
+);
 const toolStepBuildError = read('tool-step-build-error.js');
 const toolStepReturnComplete = read('tool-step-return-complete.js');
 const toolStepReturnContinue = read('tool-step-return-continue.js');
