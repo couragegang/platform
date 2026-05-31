@@ -106,6 +106,15 @@ export function validateWorkflowJson(workflow, spec) {
     if (node.type === 'n8n-nodes-base.merge') {
       issues.push(...validateMergeNode(node));
     }
+    if (node.type === 'n8n-nodes-base.code' && typeof node.parameters?.jsCode === 'string') {
+      const code = node.parameters.jsCode;
+      if (/\bimport\s/.test(code)) {
+        issues.push(`Code node "${node.name}": jsCode contains ESM import (re-run build-workflows)`);
+      }
+      if (/\bexport\s/.test(code)) {
+        issues.push(`Code node "${node.name}": jsCode contains ESM export (re-run build-workflows)`);
+      }
+    }
   }
 
   const connections = workflow.connections || {};
