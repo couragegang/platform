@@ -11,6 +11,28 @@
 
 **test** и **prod** на **одном** VPS: host-порты **только** в оверлеях — test **18080–18088** + n8n **15678** (`docker-compose.ports-test.yml`), prod **8080–8088** + n8n **5678** (`docker-compose.ports-prod.yml`). В базовом `docker-compose.yml` секции `ports` нет (иначе Compose **дописывает** порты из двух файлов, и test пытается занять 8080, уже занятый prod).
 
+### Лимит диска на контейнер (1 GiB)
+
+В `docker-compose.yml` у каждого сервиса якорь `x-container-disk-1g`:
+
+- `storage_opt.size: 1G` — writable layer контейнера (образ + `/tmp`, без named volumes).
+- `logging` json-file: до ~150 MiB логов на контейнер (`50m` × 3 файла).
+
+Override: `DOCKER_CONTAINER_STORAGE_LIMIT=512M` в env перед `docker compose up`.
+
+**Named volumes** (`pgdata`, `n8n_data`) в этот лимит **не входят** — мониторьте отдельно (`docker system df -v`).
+
+На Linux для жёсткого `storage_opt.size` нужен **overlay2 + XFS с `pquota`** на `/var/lib/docker` (на Docker Desktop лимит может не применяться). Пример в `/etc/docker/daemon.json`:
+
+```json
+{
+  "storage-driver": "overlay2",
+  "storage-opts": ["overlay2.override_kernel_check=true"]
+}
+```
+
+Файловая система Docker root: `mkfs.xfs -n ftype=1 …`, mount `-o pquota`.
+
 ### n8n (оркестратор чата)
 
 - **Workflow:** [`.github/workflows/deploy-n8n.yml`](../../.github/workflows/deploy-n8n.yml) — отдельно от **Deploy to VPS** (push `n8n/**`, `docker/n8n/**` или ручной dispatch).

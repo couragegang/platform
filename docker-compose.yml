@@ -15,8 +15,20 @@ x-runtime-env: &runtime-env
     - path: build/runtime.env
       required: false
 
+# Writable layer + logs (named volumes pgdata/n8n_data are separate).
+# size: needs overlay2+xfs pquota on Linux; ignored on Docker Desktop overlay2.
+x-container-disk-1g: &container-disk-1g
+  storage_opt:
+    size: ${DOCKER_CONTAINER_STORAGE_LIMIT:-1G}
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "3"
+
 services:
   postgres:
+    <<: *container-disk-1g
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: platform
@@ -34,7 +46,7 @@ services:
       retries: 15
 
   config:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/config-service
       dockerfile: Dockerfile
@@ -53,7 +65,7 @@ services:
         condition: service_healthy
 
   policy:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/policy-service
       dockerfile: Dockerfile
@@ -72,7 +84,7 @@ services:
         condition: service_healthy
 
   secrets:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/secrets-service
       dockerfile: Dockerfile
@@ -91,7 +103,7 @@ services:
         condition: service_healthy
 
   audit:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/audit-service
       dockerfile: Dockerfile
@@ -110,7 +122,7 @@ services:
         condition: service_healthy
 
   iam:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/iam-service
       dockerfile: Dockerfile
@@ -135,7 +147,7 @@ services:
         condition: service_started
 
   mcp-notion:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/mcp-notion
       dockerfile: Dockerfile
@@ -148,7 +160,7 @@ services:
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
 
   mcp-trello:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/mcp-trello
       dockerfile: Dockerfile
@@ -161,7 +173,7 @@ services:
       MCP_INTERNAL_API_KEY: ${MCP_INTERNAL_API_KEY:-dev-internal-key}
 
   mcp:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/mcp-gateway
       dockerfile: Dockerfile
@@ -199,6 +211,7 @@ services:
         condition: service_started
 
   knowledge:
+    <<: *container-disk-1g
     build:
       context: ../services/knowledge-service
       dockerfile: Dockerfile
@@ -217,7 +230,7 @@ services:
         condition: service_healthy
 
   ai:
-    <<: *runtime-env
+    <<: [*runtime-env, *container-disk-1g]
     build:
       context: ../services/ai-runtime
       dockerfile: Dockerfile
@@ -259,6 +272,7 @@ services:
         condition: service_started
 
   n8n:
+    <<: *container-disk-1g
     build:
       context: .
       dockerfile: docker/n8n/Dockerfile
@@ -283,6 +297,7 @@ services:
       - n8n_data:/home/node/.n8n
 
   bff:
+    <<: *container-disk-1g
     build:
       context: ../services/bff-gateway
       dockerfile: Dockerfile

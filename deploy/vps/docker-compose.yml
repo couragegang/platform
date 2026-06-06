@@ -4,8 +4,19 @@
 
 name: couragegang-${DEPLOY_CONTOUR:-prod}
 
+# Writable layer + logs per container (named volumes pgdata/n8n_data are separate).
+x-container-disk-1g: &container-disk-1g
+  storage_opt:
+    size: ${DOCKER_CONTAINER_STORAGE_LIMIT:-1G}
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "3"
+
 services:
   postgres:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/platform-postgres:${IMAGE_TAG_POSTGRES:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     volumes:
@@ -17,6 +28,7 @@ services:
       retries: 12
 
   config:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/config-service:${IMAGE_TAG_CONFIG:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -24,6 +36,7 @@ services:
         condition: service_healthy
 
   policy:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/policy-service:${IMAGE_TAG_POLICY:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -31,6 +44,7 @@ services:
         condition: service_healthy
 
   secrets:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/secrets-service:${IMAGE_TAG_SECRETS:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -38,6 +52,7 @@ services:
         condition: service_healthy
 
   audit:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/audit-service:${IMAGE_TAG_AUDIT:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -45,6 +60,7 @@ services:
         condition: service_healthy
 
   iam:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/iam-service:${IMAGE_TAG_IAM:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -54,14 +70,17 @@ services:
         condition: service_started
 
   mcp-notion:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-notion:${IMAGE_TAG_MCP_NOTION:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
 
   mcp-trello:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-trello:${IMAGE_TAG_MCP_TRELLO:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
 
   mcp:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/mcp-gateway:${IMAGE_TAG_MCP:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -79,6 +98,7 @@ services:
         condition: service_started
 
   knowledge:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/knowledge-service:${IMAGE_TAG_KNOWLEDGE:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -86,6 +106,7 @@ services:
         condition: service_healthy
 
   n8n:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/n8n:${IMAGE_TAG_N8N:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     volumes:
@@ -99,6 +120,7 @@ services:
       start_period: 120s
 
   ai:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/ai-runtime:${IMAGE_TAG_AI:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
@@ -110,6 +132,7 @@ services:
         condition: service_healthy
 
   bff:
+    <<: *container-disk-1g
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_OWNER:-couragegang}/bff-gateway:${IMAGE_TAG_BFF:-${IMAGE_TAG:-${DEPLOY_CONTOUR:-prod}-latest}}
     restart: unless-stopped
     depends_on:
