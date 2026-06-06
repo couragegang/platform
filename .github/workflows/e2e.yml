@@ -37,7 +37,11 @@ jobs:
           echo "suite=$SUITE" >> "$GITHUB_OUTPUT"
 
       - name: Checkout microservices
-        run: ./scripts/checkout-services.sh
+        env:
+          SERVICE_CHECKOUT_TOKEN: ${{ secrets.SECRET_SYNC_PAT }}
+        run: |
+          chmod +x scripts/checkout-services.sh
+          ./scripts/checkout-services.sh
 
       - name: Prepare runtime secrets (contour test)
         run: ./scripts/fetch-build-secrets.sh test
