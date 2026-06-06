@@ -71,6 +71,26 @@ describe('notion-router', () => {
     assert.deepEqual(steps[0].arguments, { query: 'roadmap' });
   });
 
+  it('creates a new page without a prior search step', () => {
+    const steps = resolveNotionInternalSteps({
+      task: { message: 'Создай у меня в notion страницу со списком дел на завтра' },
+    });
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].toolName, 'notion_write_page');
+    assert.equal(steps[0].arguments.create_new, true);
+    assert.equal(steps[0].arguments.title, 'список дел на завтра');
+  });
+
+  it('creates a todo list page from add intent', () => {
+    const steps = resolveNotionInternalSteps({
+      task: { message: 'Добавь мне To-do list' },
+    });
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].toolName, 'notion_write_page');
+    assert.equal(steps[0].arguments.create_new, true);
+    assert.equal(steps[0].arguments.title, 'To-do list');
+  });
+
   it('buildNotionToolArguments extracts replace pair', () => {
     const args = buildNotionToolArguments(
       'notion_edit_block',

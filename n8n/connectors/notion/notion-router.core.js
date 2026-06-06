@@ -109,8 +109,58 @@ function impliesCreateNew(message) {
     lower.includes('новая страница') ||
     lower.includes('create new') ||
     lower.includes('new page') ||
-    lower.includes('создай новую')
+    lower.includes('создай новую') ||
+    lower.includes('создай страницу') ||
+    lower.includes('создать страницу') ||
+    lower.includes('create a page') ||
+    lower.includes('create page') ||
+    (lower.includes('созда') && lower.includes('страниц')) ||
+    (lower.includes('create') && lower.includes('page')) ||
+    looksLikeNewPageTitle(message)
   );
+}
+
+function looksLikeNewPageTitle(message) {
+  if (!message?.trim()) return false;
+  if (extractPageTargetHint(message)) return false;
+  const lower = message.toLowerCase();
+  if (lower.includes('на страниц') || lower.includes('в страниц')) return false;
+  return (
+    lower.includes('to-do') ||
+    lower.includes('todo list') ||
+    lower.includes('список дел') ||
+    (lower.includes('список') && !lower.includes('страниц'))
+  );
+}
+
+function deriveCreateTitle(message) {
+  if (!message?.trim()) return null;
+  const trimmed = message.trim();
+  const withList = trimmed.match(/страницу\s+со\s+(.+?)\s*$/iu);
+  if (withList?.[1]?.trim()) {
+    return withList[1].trim().replace(/^списком\s+/iu, 'список ');
+  }
+  const patterns = [
+    /(?:создай|создать)\s+(?:у меня\s+)?(?:в\s+)?(?:notion\s+)?(?:страницу\s+)?(.+?)\s*$/iu,
+    /(?:добавь|добавить)\s+(?:мне\s+)?(.+?)\s*$/iu,
+    /(?:create)\s+(?:a\s+)?(?:page\s+)?(?:with\s+|for\s+)?(.+?)\s*$/iu,
+  ];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m?.[1]?.trim()) {
+      const title = m[1].trim();
+      if (title.length > 0 && title.length <= 120) return title;
+    }
+  }
+  return null;
+}
+
+function isCreateNewArgs(args) {
+  if (!args || typeof args !== 'object') return false;
+  const flag = args.create_new;
+  if (flag === true || flag === 'true' || flag === 1 || flag === '1') return true;
+  const mode = String(args.mode || args.action || '').toLowerCase();
+  return mode.includes('create') || mode.includes('new');
 }
 
 /** @param {string} toolName @param {string} message @param {object} constraints */
@@ -142,11 +192,10 @@ export function buildNotionToolArguments(toolName, message, constraints = {}) {
     args.create_new = createNew;
     args.content = args.content || text;
     args.message = args.message || text;
-    if (createNew && args.title) {
-      /* keep router-provided title */
-    } else if (createNew) {
-      const title = extractPageTargetHint(text);
-      if (title) args.title = title;
+    if (createNew) {
+      if (!args.title) {
+        args.title = deriveCreateTitle(text) || extractPageTargetHint(text);
+      }
     } else {
       const pageHint = extractPageTargetHint(text) || args.page_title;
       if (pageHint) args.page_title = pageHint;
@@ -180,6 +229,7 @@ function priorHasResolvablePage(priorResults) {
 function needsSearchBefore(toolName, args, priorResults) {
   const n = (toolName || '').toLowerCase();
   if (n.includes('search')) return false;
+  if (isCreateNewArgs(args)) return false;
   if (stepHasPageTarget(args)) return false;
   if (priorHasResolvablePage(priorResults)) return false;
   return n.includes('write') || n.includes('edit') || n.includes('create') || n.includes('delete');
