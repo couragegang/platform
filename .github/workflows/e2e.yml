@@ -49,27 +49,11 @@ jobs:
       - name: Build and start stack
         env:
           DOCKER_BUILDKIT: "1"
+          STACK_HEALTH_MAX_ATTEMPTS: "120"
         run: |
           docker compose up -d --build
-          echo "Waiting for services..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:8080/v1/iam/health \
-              && curl -sf http://localhost:8081/v1/mcp/health \
-              && curl -sf http://localhost:8082/v1/bff/health \
-              && curl -sf http://localhost:8083/v1/ai/health \
-              && curl -sf http://localhost:8084/v1/config/health \
-              && curl -sf http://localhost:8085/v1/policy/health \
-              && curl -sf http://localhost:8086/v1/audit/health \
-              && curl -sf http://localhost:8087/v1/secrets/health \
-              && curl -sf http://localhost:8088/v1/knowledge/health; then
-              echo "All healthy"
-              exit 0
-            fi
-            sleep 5
-          done
-          docker compose ps
-          docker compose logs --tail=80
-          exit 1
+          chmod +x scripts/wait-stack-healthy.sh
+          ./scripts/wait-stack-healthy.sh
 
       - uses: actions/setup-python@v5
         with:

@@ -269,7 +269,7 @@ services:
       audit:
         condition: service_started
       n8n:
-        condition: service_started
+        condition: service_healthy
 
   n8n:
     <<: *container-disk-1g
@@ -280,6 +280,13 @@ services:
     entrypoint: ["/docker-entrypoint-custom.sh"]
     ports:
       - "5678:5678"
+    healthcheck:
+      # entrypoint imports workflows before n8n listens on 5678
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
     environment:
       N8N_HOST: localhost
       N8N_PORT: "5678"
