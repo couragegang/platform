@@ -21,23 +21,26 @@ function matchesEditBlockIntent(lower) {
 
 function matchesWriteIntent(lower) {
   // Use verb stems only — bare «созда»/«добав» false-positive on «созданные», «добавленные».
-  return [
-    'создай',
-    'создать',
-    'создаю',
-    'добавь',
-    'добавить',
-    'добавьте',
-    'запиши',
-    'записать',
-    'сохрани',
-    'сохранить',
-    'write',
-    'create page',
-    'create a page',
-    'обнови',
-    'обновить',
-  ].some((w) => lower.includes(w));
+  if (
+    [
+      'создай',
+      'создать',
+      'создаю',
+      'добавь',
+      'добавить',
+      'добавьте',
+      'запиши',
+      'записать',
+      'сохрани',
+      'сохранить',
+      'write',
+      'create page',
+      'create a page',
+    ].some((w) => lower.includes(w))
+  ) {
+    return true;
+  }
+  return matchesUpdateOrAppendIntent(lower);
 }
 
 function matchesDeleteIntent(lower) {
@@ -47,6 +50,14 @@ function matchesDeleteIntent(lower) {
 }
 
 function matchesSearchFollowUp(lower) {
+  if (
+    lower.includes('создай') ||
+    lower.includes('создать') ||
+    lower.includes('create page') ||
+    matchesUpdateOrAppendIntent(lower)
+  ) {
+    return false;
+  }
   return (
     ['назван', 'тема', 'topic', 'name', 'страниц'].some((w) => lower.includes(w)) ||
     lower === 'название'
@@ -54,6 +65,9 @@ function matchesSearchFollowUp(lower) {
 }
 
 function matchesListIntent(lower) {
+  if (lower.includes('создай') || lower.includes('создать') || lower.includes('create page')) {
+    return false;
+  }
   return (
     ((lower.includes('какие') || lower.includes('какой') || lower.includes('что есть')) &&
       lower.includes('страниц')) ||
@@ -87,10 +101,10 @@ export function resolveNotionToolName(message) {
   const lower = message.toLowerCase();
   if (matchesDeleteIntent(lower)) return 'notion_delete_page';
   if (matchesEditBlockIntent(lower)) return 'notion_edit_block';
-  if (matchesWriteIntent(lower)) return 'notion_write_page';
   if (matchesListIntent(lower) || matchesSearchIntent(lower) || matchesSearchFollowUp(lower)) {
     return 'notion_search';
   }
+  if (matchesWriteIntent(lower)) return 'notion_write_page';
   return null;
 }
 
@@ -125,9 +139,24 @@ function extractPageTargetHint(message) {
   return null;
 }
 
+function matchesUpdateOrAppendIntent(lower) {
+  return (
+    lower.includes('обнови') ||
+    lower.includes('обновить') ||
+    lower.includes('допиши') ||
+    lower.includes('дописать') ||
+    lower.includes('добавь туда') ||
+    lower.includes('внеси') ||
+    (lower.includes('добавь') &&
+      (lower.includes('туда') || lower.includes('в список') || lower.includes('пункт')))
+  );
+}
+
 function impliesCreateNew(message) {
   if (!message?.trim()) return false;
   const lower = message.toLowerCase();
+  if (matchesUpdateOrAppendIntent(lower)) return false;
+  if (matchesSearchIntent(lower) || matchesListIntent(lower)) return false;
   return (
     lower.includes('новую страницу') ||
     lower.includes('новая страница') ||
@@ -149,12 +178,48 @@ function looksLikeNewPageTitle(message) {
   if (extractPageTargetHint(message)) return false;
   const lower = message.toLowerCase();
   if (lower.includes('на страниц') || lower.includes('в страниц')) return false;
+  if (matchesUpdateOrAppendIntent(lower) || matchesSearchIntent(lower) || matchesListIntent(lower)) {
+    return false;
+  }
   return (
     lower.includes('to-do') ||
     lower.includes('todo list') ||
-    lower.includes('список дел') ||
     (lower.includes('список') && !lower.includes('страниц'))
   );
+}
+
+function extractAppendContent(message) {
+  if (!message?.trim()) return null;
+  const trimmed = message.trim();
+  const patterns = [
+    /[-—]\s*добавь\s+туда\s+(.+?)\s*$/iu,
+    /добавь\s+туда\s+(.+?)\s*$/iu,
+    /добавь\s+пункт\s+[«"']?(.+?)[«"']?\s*$/iu,
+    /добавить\s+пункт\s+[«"']?(.+?)[«"']?\s*$/iu,
+    /добавь\s+[«"'](.+?)[«"']\s*$/iu,
+  ];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m?.[1]?.trim()) return m[1].trim();
+  }
+  return null;
+}
+
+function extractListPageHint(message) {
+  if (!message?.trim()) return null;
+  const trimmed = message.trim();
+  const full = trimmed.match(
+    /(?:обнови|обновить)\s+(?:мой\s+)?список\s+дел(?:\s+на\s+(.+?))?(?:\s*[-—]|$)/iu,
+  );
+  if (full) {
+    const when = full[1]?.trim().replace(/\s*[-—].*$/, '');
+    return when ? `список дел на ${when}` : 'список дел';
+  }
+  const todo = trimmed.match(/todo\s*list|to-do/i);
+  if (todo && matchesUpdateOrAppendIntent(trimmed.toLowerCase())) {
+    return 'Todo List';
+  }
+  return null;
 }
 
 function deriveCreateTitle(message) {
@@ -214,14 +279,16 @@ export function buildNotionToolArguments(toolName, message, constraints = {}) {
   if (n.includes('write') || n.includes('create')) {
     const createNew = args.create_new === true || impliesCreateNew(text);
     args.create_new = createNew;
-    args.content = args.content || text;
-    args.message = args.message || text;
+    const appendContent = extractAppendContent(text);
+    args.content = appendContent || args.content || text;
+    args.message = appendContent || args.message || text;
     if (createNew) {
       if (!args.title) {
         args.title = deriveCreateTitle(text) || extractPageTargetHint(text);
       }
     } else {
-      const pageHint = extractPageTargetHint(text) || args.page_title;
+      const pageHint =
+        extractPageTargetHint(text) || extractListPageHint(text) || args.page_title;
       if (pageHint) args.page_title = pageHint;
     }
     return args;
@@ -290,7 +357,11 @@ export function resolveNotionInternalSteps(step, priorResults = []) {
     return [];
   }
 
-  const args = buildNotionToolArguments(toolName, argsMessage, constraints);
+  const contentSource =
+    userMessage && matchesUpdateOrAppendIntent((userMessage || '').toLowerCase())
+      ? userMessage
+      : argsMessage;
+  const args = buildNotionToolArguments(toolName, contentSource, constraints);
   const internal = [];
 
   if (needsSearchBefore(toolName, args, priorResults)) {

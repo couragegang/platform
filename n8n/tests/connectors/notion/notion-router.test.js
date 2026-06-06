@@ -89,6 +89,29 @@ describe('notion-router', () => {
     assert.notEqual(steps[0].arguments.create_new, true);
   });
 
+  it('appends to existing todo list instead of creating a new page', () => {
+    const msg = 'Обнови мой список дел на завтра-добавь туда вкусно покушать';
+    const steps = resolveNotionInternalSteps({
+      task: { message: msg },
+      userMessage: msg,
+    });
+    assert.equal(steps.length, 2);
+    assert.equal(steps[0].toolName, 'notion_search');
+    assert.equal(steps[1].toolName, 'notion_write_page');
+    assert.equal(steps[1].arguments.create_new, false);
+    assert.equal(steps[1].arguments.content, 'вкусно покушать');
+    assert.equal(steps[1].arguments.page_title, 'список дел на завтра');
+  });
+
+  it('routes L1 search paraphrase to notion_search not write', () => {
+    const msg =
+      "Найди страницу с заголовком 'Todo List' или подобным, которая была создана ранее";
+    assert.equal(resolveNotionToolName(msg), 'notion_search');
+    const steps = resolveNotionInternalSteps({ task: { message: msg } });
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].toolName, 'notion_search');
+  });
+
   it('creates a new page without a prior search step', () => {
     const steps = resolveNotionInternalSteps({
       task: { message: 'Создай у меня в notion страницу со списком дел на завтра' },
