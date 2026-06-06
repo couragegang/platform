@@ -32,7 +32,6 @@ function matchesDeleteIntent(lower) {
 }
 
 function matchesSearchFollowUp(lower) {
-  if (lower.length > 40) return false;
   return (
     ['назван', 'тема', 'topic', 'name', 'страниц'].some((w) => lower.includes(w)) ||
     lower === 'название'
@@ -45,13 +44,16 @@ function matchesListIntent(lower) {
       lower.includes('страниц')) ||
     (lower.includes('список') && lower.includes('страниц')) ||
     (lower.includes('перечисли') && lower.includes('страниц')) ||
-    (lower.includes('show') && lower.includes('page'))
+    (lower.includes('show') && lower.includes('page')) ||
+    (lower.includes('list') && lower.includes('page')) ||
+    (lower.includes('страниц') &&
+      (lower.includes('есть') || lower.includes('имею') || lower.includes('доступ')))
   );
 }
 
 function matchesSearchIntent(lower) {
-  return ['найди', 'поиск', 'search', 'find', 'прочит', 'покаж', 'fetch'].some((w) =>
-    lower.includes(w),
+  return ['найди', 'поиск', 'search', 'find', 'прочит', 'покаж', 'показ', 'fetch', 'отобраз'].some(
+    (w) => lower.includes(w),
   );
 }
 
@@ -60,11 +62,11 @@ export function resolveNotionToolName(message) {
   if (!message?.trim()) return null;
   const lower = message.toLowerCase();
   if (matchesDeleteIntent(lower)) return 'notion_delete_page';
+  if (matchesEditBlockIntent(lower)) return 'notion_edit_block';
+  if (matchesWriteIntent(lower)) return 'notion_write_page';
   if (matchesListIntent(lower) || matchesSearchIntent(lower) || matchesSearchFollowUp(lower)) {
     return 'notion_search';
   }
-  if (matchesEditBlockIntent(lower)) return 'notion_edit_block';
-  if (matchesWriteIntent(lower)) return 'notion_write_page';
   return null;
 }
 
@@ -199,14 +201,22 @@ export function resolveNotionInternalSteps(step, priorResults = []) {
     ];
   }
 
-  const message = step?.task?.message || step?.message || '';
+  const taskMessage = step?.task?.message || step?.message || '';
+  const userMessage = step?.userMessage || step?.task?.userMessage || '';
   const constraints = step?.task?.constraints || {};
-  const toolName = resolveNotionToolName(message);
+  let toolName = resolveNotionToolName(taskMessage);
+  let argsMessage = taskMessage;
+  if (!toolName && userMessage) {
+    toolName = resolveNotionToolName(userMessage);
+    if (toolName) {
+      argsMessage = userMessage;
+    }
+  }
   if (!toolName) {
     return [];
   }
 
-  const args = buildNotionToolArguments(toolName, message, constraints);
+  const args = buildNotionToolArguments(toolName, argsMessage, constraints);
   const internal = [];
 
   if (needsSearchBefore(toolName, args, priorResults)) {
@@ -214,7 +224,7 @@ export function resolveNotionInternalSteps(step, priorResults = []) {
     internal.push({
       connectorKey: 'notion',
       toolName: 'notion_search',
-      arguments: buildNotionToolArguments('notion_search', hint || message, constraints),
+      arguments: buildNotionToolArguments('notion_search', hint || argsMessage, constraints),
       label: 'Поиск страницы в Notion',
     });
   }

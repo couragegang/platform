@@ -35,7 +35,12 @@ if (!step?.connectorKey || step.connectorKey !== 'notion') {
   return [{ json: { ...base, valid: false, error: 'Invalid Notion connector step' } }];
 }
 
-const internalSteps = resolveNotionInternalSteps(step, priorResults);
+const userMessage = body.message || '';
+const stepWithUserMessage =
+  userMessage && !step?.userMessage
+    ? { ...step, userMessage }
+    : step;
+const internalSteps = resolveNotionInternalSteps(stepWithUserMessage, priorResults);
 if (!internalSteps.length) {
   return [{ json: { ...base, valid: false, error: 'Could not resolve Notion tools for task' } }];
 }

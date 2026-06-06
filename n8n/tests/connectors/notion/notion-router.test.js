@@ -40,6 +40,27 @@ describe('notion-router', () => {
     assert.equal(steps[1].toolName, 'notion_edit_block');
   });
 
+  it('resolves list intent from L1 paraphrases', () => {
+    assert.equal(
+      resolveNotionToolName('Показать все страницы Notion пользователя'),
+      'notion_search',
+    );
+    assert.equal(resolveNotionToolName('List all Notion pages'), 'notion_search');
+  });
+
+  it('falls back to original user message when router task is vague', () => {
+    const steps = resolveNotionInternalSteps(
+      {
+        task: { message: 'Retrieve all Notion pages for the user' },
+        userMessage: 'Какие у меня есть страницы в notion?',
+      },
+      [],
+    );
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].toolName, 'notion_search');
+    assert.equal(steps[0].arguments.query, 'Какие у меня есть страницы в notion?');
+  });
+
   it('single explicit toolName step passes through', () => {
     const steps = resolveNotionInternalSteps({
       toolName: 'notion_search',
