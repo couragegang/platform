@@ -29,4 +29,14 @@ export async function executeConnectorChain() {
     assert.match(bundled, /async function executeConnectorChain/);
     assert.match(bundled, /function planHasRunnableSteps/);
   });
+
+  it('bundled Trello connector includes buildTrelloToolArguments', () => {
+    const bundled = bundleN8nCode(
+      ['connectors/trello/trello-task.core.js', 'connectors/trello/trello-router.core.js'],
+      'scripts/connector-trello-parse.runner.js',
+    );
+    assert.ok(!/\bimport\s/.test(bundled), 'must not contain import');
+    assert.match(bundled, /function buildTrelloToolArguments/);
+    assert.match(bundled, /function resolveTrelloInternalSteps/);
+  });
 });

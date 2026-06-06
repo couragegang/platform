@@ -34,11 +34,11 @@ const connectorNotionRun = bundleN8nCode(
   'scripts/connector-notion-run.runner.js',
 );
 const connectorTrelloParse = bundleN8nCode(
-  ['connectors/trello/trello-router.core.js'],
+  ['connectors/trello/trello-task.core.js', 'connectors/trello/trello-router.core.js'],
   'scripts/connector-trello-parse.runner.js',
 );
 const connectorTrelloRun = bundleN8nCode(
-  ['connectors/trello/trello-router.core.js'],
+  ['connectors/trello/trello-task.core.js', 'connectors/trello/trello-router.core.js'],
   'scripts/connector-trello-run.runner.js',
 );
 const toolStepBuildError = read('tool-step-build-error.js');
