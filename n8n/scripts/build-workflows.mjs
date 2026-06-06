@@ -329,7 +329,9 @@ return [{ json: payload }];`),
       `={{ JSON.stringify({
         status: "awaiting_plan_approval",
         reply: $("Format Plan Approval").first().json.message,
-        pendingApprovalId: $("Create Plan Pending").first().json.body || $("Create Plan Pending").first().json,
+        pendingApprovalId: $("Create Plan Pending").first().json.pendingApprovalId
+          || $("Create Plan Pending").first().json.body
+          || $("Create Plan Pending").first().json,
         approvalKind: "plan"
       }) }}`,
       [

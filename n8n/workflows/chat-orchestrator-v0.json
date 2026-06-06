@@ -609,7 +609,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n        status: \"awaiting_plan_approval\",\n        reply: $(\"Format Plan Approval\").first().json.message,\n        pendingApprovalId: $(\"Create Plan Pending\").first().json.body || $(\"Create Plan Pending\").first().json,\n        approvalKind: \"plan\"\n      }) }}",
+        "jsonBody": "={{ JSON.stringify({\n        status: \"awaiting_plan_approval\",\n        reply: $(\"Format Plan Approval\").first().json.message,\n        pendingApprovalId: $(\"Create Plan Pending\").first().json.pendingApprovalId\n          || $(\"Create Plan Pending\").first().json.body\n          || $(\"Create Plan Pending\").first().json,\n        approvalKind: \"plan\"\n      }) }}",
         "options": {
           "response": {
             "response": {
