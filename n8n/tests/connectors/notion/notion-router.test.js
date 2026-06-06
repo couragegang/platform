@@ -71,6 +71,24 @@ describe('notion-router', () => {
     assert.deepEqual(steps[0].arguments, { query: 'roadmap' });
   });
 
+  it('lists pages instead of creating when user asks what pages exist', () => {
+    assert.equal(resolveNotionToolName('какие у меня есть страницы?'), 'notion_search');
+    const steps = resolveNotionInternalSteps({
+      task: { message: 'какие у меня есть страницы?' },
+    });
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].toolName, 'notion_search');
+  });
+
+  it('does not treat L1 paraphrase with «созданные» as write', () => {
+    const msg =
+      "Найти все страницы в Notion workspace пользователя, включая страницы, созданные ранее (например, 'Todo List').";
+    assert.equal(resolveNotionToolName(msg), 'notion_search');
+    const steps = resolveNotionInternalSteps({ task: { message: msg } });
+    assert.equal(steps[0].toolName, 'notion_search');
+    assert.notEqual(steps[0].arguments.create_new, true);
+  });
+
   it('creates a new page without a prior search step', () => {
     const steps = resolveNotionInternalSteps({
       task: { message: 'Создай у меня в notion страницу со списком дел на завтра' },

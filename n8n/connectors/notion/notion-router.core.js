@@ -20,9 +20,24 @@ function matchesEditBlockIntent(lower) {
 }
 
 function matchesWriteIntent(lower) {
-  return ['сохран', 'запис', 'созда', 'добав', 'write', 'create', 'update', 'добавь'].some((w) =>
-    lower.includes(w),
-  );
+  // Use verb stems only — bare «созда»/«добав» false-positive on «созданные», «добавленные».
+  return [
+    'создай',
+    'создать',
+    'создаю',
+    'добавь',
+    'добавить',
+    'добавьте',
+    'запиши',
+    'записать',
+    'сохрани',
+    'сохранить',
+    'write',
+    'create page',
+    'create a page',
+    'обнови',
+    'обновить',
+  ].some((w) => lower.includes(w));
 }
 
 function matchesDeleteIntent(lower) {
@@ -52,9 +67,18 @@ function matchesListIntent(lower) {
 }
 
 function matchesSearchIntent(lower) {
-  return ['найди', 'поиск', 'search', 'find', 'прочит', 'покаж', 'показ', 'fetch', 'отобраз'].some(
-    (w) => lower.includes(w),
-  );
+  return [
+    'найди',
+    'найти',
+    'поиск',
+    'search',
+    'find',
+    'прочит',
+    'покаж',
+    'показ',
+    'fetch',
+    'отобраз',
+  ].some((w) => lower.includes(w));
 }
 
 /** @param {string} message */
