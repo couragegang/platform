@@ -18,7 +18,7 @@ describe('enrichWriteArguments', () => {
         toolName: 'notion_search',
         ok: true,
         summary:
-          'Найдено в Notion:\n- Roadmap (https://www.notion.so/Roadmap-abc123)',
+          'Найдено в Notion:\n- Roadmap (https://www.notion.so/Roadmap-abc123) {36c3d6c5-2305-81ea-83ef-d43b2b284066}',
       },
     ];
     const args = enrichWriteArguments(
@@ -27,7 +27,30 @@ describe('enrichWriteArguments', () => {
       prior,
     );
     assert.equal(args.page_url, 'https://www.notion.so/Roadmap-abc123');
+    assert.equal(args.page_id, '36c3d6c5-2305-81ea-83ef-d43b2b284066');
     assert.equal(args.page_title, 'Roadmap');
+  });
+
+  it('replaces invalid page_url with prior search hit', () => {
+    const prior = [
+      {
+        toolName: 'notion_search',
+        ok: true,
+        summary:
+          'Найдено в Notion:\n- Чек-лист (https://www.notion.so/Check-36c3d6c5230581ea83efd43b2b284066) {36c3d6c5-2305-81ea-83ef-d43b2b284066}',
+      },
+    ];
+    const args = enrichWriteArguments(
+      'notion_write_page',
+      {
+        content: 'текст',
+        page_title: 'Чек-лист',
+        page_url: 'https://app.notion.com/p/8-18-30--bad',
+      },
+      prior,
+    );
+    assert.equal(args.page_id, '36c3d6c5-2305-81ea-83ef-d43b2b284066');
+    assert.ok(args.page_url.includes('notion.so'));
   });
 
   it('skips enrichment when create_new is true', () => {

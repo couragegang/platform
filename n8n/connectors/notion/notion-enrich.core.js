@@ -2,6 +2,8 @@
  * Enrich Notion tool arguments from prior search steps (L2 connector only).
  */
 
+import { isResolvableNotionPageRef, parseNotionPageId } from './notion-id.core.js';
+
 export function isWriteTool(toolName) {
   const n = (toolName || '').toLowerCase();
   return n.includes('write') || n.includes('create');
@@ -23,12 +25,18 @@ export function isCreateNew(args) {
 export function parseSearchResultLine(line) {
   const trimmed = (line || '').trim();
   if (!trimmed.startsWith('- ')) return null;
-  const body = trimmed.slice(2);
+  let body = trimmed.slice(2);
+  let id = null;
+  const idMatch = body.match(/\{([0-9a-f-]{36})\}\s*$/i);
+  if (idMatch) {
+    id = idMatch[1].toLowerCase();
+    body = body.slice(0, idMatch.index).trim();
+  }
   const urlMatch = body.match(/^(.+?)\s+\((https?:\/\/[^)]+)\)\s*$/);
   if (urlMatch) {
-    return { title: urlMatch[1].trim(), url: urlMatch[2].trim() };
+    return { title: urlMatch[1].trim(), url: urlMatch[2].trim(), id };
   }
-  return { title: body.trim(), url: null };
+  return { title: body.trim(), url: null, id };
 }
 
 export function extractPagesFromSearchSummary(summary) {
@@ -69,42 +77,53 @@ export function pickPageFromPriorSearch(priorResults, pageTitleHint) {
   return null;
 }
 
-export function enrichWriteArguments(toolName, args, priorResults) {
-  const base = { ...(args || {}) };
-  if (!isWriteTool(toolName) || isCreateNew(base)) {
-    return base;
+function hasResolvablePageTarget(args) {
+  if (!args) return false;
+  if (args.page_id && isResolvableNotionPageRef(args.page_id)) return true;
+  if (args.page_url && isResolvableNotionPageRef(args.page_url)) return true;
+  return false;
+}
+
+function applyPickedPage(base, picked) {
+  if (!picked) return;
+  if (picked.id) {
+    base.page_id = picked.id;
+  } else if (picked.url) {
+    const parsed = parseNotionPageId(picked.url);
+    if (parsed) base.page_id = parsed;
   }
-  if (base.page_id || base.page_url) {
+  if (picked.url) {
+    base.page_url = picked.url;
+  }
+  if (picked.title && !base.page_title) {
+    base.page_title = picked.title;
+  }
+}
+
+function enrichPageTargetArguments(toolName, args, priorResults, toolMatcher) {
+  const base = { ...(args || {}) };
+  if (!toolMatcher(toolName) || isCreateNew(base)) {
     return base;
   }
   const hint = base.page_title || base.target_page || base.title || null;
   const picked = pickPageFromPriorSearch(priorResults, hint);
-  if (picked?.url) {
-    base.page_url = picked.url;
+  if (hasResolvablePageTarget(base)) {
+    if (!base.page_id && base.page_url) {
+      const parsed = parseNotionPageId(base.page_url);
+      if (parsed) base.page_id = parsed;
+    }
+    return base;
   }
-  if (picked?.title && !base.page_title) {
-    base.page_title = picked.title;
-  }
+  applyPickedPage(base, picked);
   return base;
 }
 
+export function enrichWriteArguments(toolName, args, priorResults) {
+  return enrichPageTargetArguments(toolName, args, priorResults, isWriteTool);
+}
+
 export function enrichEditArguments(toolName, args, priorResults) {
-  const base = { ...(args || {}) };
-  if (!isEditTool(toolName)) {
-    return base;
-  }
-  if (base.page_id || base.page_url) {
-    return base;
-  }
-  const hint = base.page_title || base.target_page || base.title || null;
-  const picked = pickPageFromPriorSearch(priorResults, hint);
-  if (picked?.url) {
-    base.page_url = picked.url;
-  }
-  if (picked?.title && !base.page_title) {
-    base.page_title = picked.title;
-  }
-  return base;
+  return enrichPageTargetArguments(toolName, args, priorResults, isEditTool);
 }
 
 export function enrichNotionToolArguments(toolName, args, priorResults) {

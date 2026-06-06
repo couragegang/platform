@@ -27,6 +27,7 @@ const connectorNotionParse = bundleN8nCode(
 const connectorNotionRun = bundleN8nCode(
   [
     'connectors/notion/notion-router.core.js',
+    'connectors/notion/notion-id.core.js',
     'connectors/notion/notion-enrich.core.js',
     'connectors/notion/notion-search-outcome.core.js',
   ],
